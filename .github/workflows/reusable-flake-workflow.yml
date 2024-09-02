@@ -1,0 +1,55 @@
+name: flake
+
+on:
+  workflow_call:
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Run static checks'
+        run: nix run nixpkgs#statix -- check .
+
+  dead-code-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Run dead-code checks'
+        run: nix run nixpkgs#deadnix -- -_ -f .
+
+  discover:
+    runs-on: ubuntu-latest
+    needs: [static-analysis, dead-code-analysis]
+    outputs:
+      packages: ${{ steps.discover-job.outputs.packages }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Discover flake packages'
+        id: discover-job
+        run: printf "packages=%s\n" "$(nix eval .#packages.$(nix eval --impure --raw --expr 'builtins.currentSystem') --apply builtins.attrNames --json)" | tee -a $GITHUB_OUTPUT
+
+  build:
+    runs-on: ubuntu-latest
+    needs: discover
+    strategy:
+      matrix:
+        package: ${{ fromJSON(needs.discover.outputs.packages) }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Build default package'
+        run: nix build ".#${{ matrix.package }}"
+
+
