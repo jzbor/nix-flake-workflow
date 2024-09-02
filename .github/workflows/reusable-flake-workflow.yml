@@ -2,6 +2,17 @@ name: flake
 
 on:
   workflow_call:
+    inputs:
+      binary-cache:
+        required: false
+        type: boolean
+    secrets:
+      ATTIC_ENDPOINT:
+        required: false
+      ATTIC_TOKEN:
+        required: false
+      ATTIC_CACHE:
+        required: false
 
 jobs:
   static-analysis:
@@ -24,9 +35,19 @@ jobs:
       - name: 'Run dead-code checks'
         run: nix run nixpkgs#deadnix -- -_ -f .
 
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Run flake checks'
+        run: nix flake check
+
   discover:
     runs-on: ubuntu-latest
-    needs: [static-analysis, dead-code-analysis]
+    needs: [static-analysis, dead-code-analysis, flake-check]
     outputs:
       packages: ${{ steps.discover-job.outputs.packages }}
     steps:
@@ -40,7 +61,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: discover
+    needs: [discover]
     strategy:
       matrix:
         package: ${{ fromJSON(needs.discover.outputs.packages) }}
@@ -49,7 +70,14 @@ jobs:
         uses: actions/checkout@v4
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
-      - name: 'Build default package'
+      - name: 'Setup Attic cache'
+        uses: ryanccn/attic-action@v0
+        if: ${{ inputs.binary-cache == true }}
+        with:
+          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
+          cache: ${{ secrets.ATTIC_CACHE }}
+          token: ${{ secrets.ATTIC_TOKEN }}
+      - name: 'Build package "${{ matrix.package }}"'
         run: nix build ".#${{ matrix.package }}"
 
 
