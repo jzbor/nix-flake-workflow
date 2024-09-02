@@ -31,6 +31,26 @@
       program = "${script}/bin/add";
     };
 
+    apps.add-fast = let
+      workflowFile = ".github/workflows/flake-fast.yml";
+      script = pkgs.writeShellApplication {
+        name = "add-fast";
+        text = ''
+          if [ -f ${workflowFile} ]; then
+            echo "Workflow file \"${workflowFile}\" already exists" >&2
+            exit 1
+          fi
+
+          mkdir -pv "$(dirname ${workflowFile})"
+          cp -v ${self}/template-fast.yml ${workflowFile}
+          chmod 600 ${workflowFile}
+        '';
+      };
+    in {
+      type = "app";
+      program = "${script}/bin/add-fast";
+    };
+
     # This mainly suits NixOS-based installations of attic
     apps.create-attic-token = let
       script = pkgs.writeShellApplication {
