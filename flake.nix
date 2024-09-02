@@ -11,6 +11,7 @@
   let
     pkgs = nixpkgs.legacyPackages.${system};
   in {
+    # This mainly suits NixOS-based installations of attic
     apps.create-attic-token = let
       script = pkgs.writeShellApplication {
         name = "create-attic-token";
@@ -26,6 +27,20 @@
           echo "ATTIC_ENDPOINT: <your-endpoint>"
           echo "ATTIC_CACHE: $2"
           echo "ATTIC_TOKEN: $token"
+        '';
+      };
+    in {
+      type = "app";
+      program = "${script}/bin/create-attic-token";
+    };
+
+    apps.install = let
+      script = pkgs.writeShellApplication {
+        name = "create-attic-token";
+        text = ''
+          mkdir -pv .github/workflows/
+          cp -v ${self}/template.yml .github/workflows/flake.yml
+          chmod 600 .github/workflows/flake.yml
         '';
       };
     in {
