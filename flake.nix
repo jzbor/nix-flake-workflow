@@ -11,6 +11,26 @@
   let
     pkgs = nixpkgs.legacyPackages.${system};
   in {
+    apps.add = let
+      workflowFile = ".github/workflows/flake.yml";
+      script = pkgs.writeShellApplication {
+        name = "add";
+        text = ''
+          if [ -f ${workflowFile} ]; then
+            echo "Workflow file \"${workflowFile}\" already exists" >&2
+            exit 1
+          fi
+
+          mkdir -pv "$(dirname ${workflowFile})"
+          cp -v ${self}/template.yml ${workflowFile}
+          chmod 600 ${workflowFile}
+        '';
+      };
+    in {
+      type = "app";
+      program = "${script}/bin/add";
+    };
+
     # This mainly suits NixOS-based installations of attic
     apps.create-attic-token = let
       script = pkgs.writeShellApplication {
@@ -27,20 +47,6 @@
           echo "ATTIC_ENDPOINT: <your-endpoint>"
           echo "ATTIC_CACHE: $2"
           echo "ATTIC_TOKEN: $token"
-        '';
-      };
-    in {
-      type = "app";
-      program = "${script}/bin/create-attic-token";
-    };
-
-    apps.install = let
-      script = pkgs.writeShellApplication {
-        name = "create-attic-token";
-        text = ''
-          mkdir -pv .github/workflows/
-          cp -v ${self}/template.yml .github/workflows/flake.yml
-          chmod 600 .github/workflows/flake.yml
         '';
       };
     in {
