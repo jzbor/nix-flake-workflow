@@ -1,4 +1,4 @@
-name: flake-fast
+name: reusable-flake-fast
 
 on:
   workflow_call:

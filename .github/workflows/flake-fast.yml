@@ -1,4 +1,4 @@
-name: flake
+name: flake-fast
 
 on:
   push:

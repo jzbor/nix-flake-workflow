@@ -1,4 +1,4 @@
-name: flake
+name: reusable-flake
 
 on:
   workflow_call:
