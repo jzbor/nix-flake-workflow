@@ -24,6 +24,8 @@ jobs:
         uses: actions/checkout@v4
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
+      - name: 'Download static analysis tools'
+        run: nix build nixpkgs#deadnix nixpkgs#statix --no-link
       - name: 'Run dead-code checks'
         run: nix run nixpkgs#deadnix -- -_ -f .
       - name: 'Run static checks'
