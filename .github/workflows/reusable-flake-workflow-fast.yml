@@ -58,6 +58,6 @@ jobs:
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
       - name: 'Build package "${{ matrix.package }}"'
-        run: nix run nixpkgs#nix-fast-build -- --eval-workers 4 --eval-max-memory-size 3000 --skip-cached --no-nom --flake ".#${matrix.package}"
+        run: nix run nixpkgs#nix-fast-build -- --eval-workers 4 --eval-max-memory-size 3000 --skip-cached --no-nom --flake ".#packages.x86_64-linux.${{ matrix.package }}"
 
 
