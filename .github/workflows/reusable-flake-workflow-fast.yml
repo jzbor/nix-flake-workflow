@@ -48,6 +48,8 @@ jobs:
         uses: actions/checkout@v4
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
+      - name: Install nix-fast-build
+        run: nix build nixpkgs#nix-fast-build --no-link
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
@@ -56,6 +58,6 @@ jobs:
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
       - name: 'Build package "${{ matrix.package }}"'
-        run: nix build ".#${{ matrix.package }}"
+        run: nix run nixpkgs#nix-fast-build -- --eval-workers 4 --eval-max-memory-size 3000 --skip-cached --no-nom --flake ".#${matrix.package}"
 
 
