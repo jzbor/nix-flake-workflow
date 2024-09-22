@@ -30,9 +30,9 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
       - name: 'Download statix'
-        run: nix build nixpkgs#statix --no-link
+        run: nix build github:jzbor/nix-overlay#statix-static --no-link
       - name: 'Run static checks'
-        run: nix run nixpkgs#statix -- check .
+        run: nix run github:jzbor/nix-overlay#statix-static -- check .
 
   dead-code-analysis:
     runs-on: ubuntu-latest
@@ -44,9 +44,9 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
       - name: 'Download deadnix'
-        run: nix build nixpkgs#deadnix --no-link
+        run: nix build github:jzbor/nix-overlay#deadnix-static --no-link
       - name: 'Run dead-code checks'
-        run: nix run nixpkgs#deadnix -- -_ -f .
+        run: nix run github:jzbor/nix-overlay#deadnix-static -- -_ -f .
 
   flake-check:
     runs-on: ubuntu-latest

@@ -34,9 +34,9 @@ jobs:
       - name: 'Download static analysis tools'
         run: nix build nixpkgs#deadnix nixpkgs#statix --no-link
       - name: 'Run dead-code checks'
-        run: nix run nixpkgs#deadnix -- -_ -f .
+        run: nix run github:jzbor/nix-overlay#deadnix-static -- -_ -f .
       - name: 'Run static checks'
-        run: nix run nixpkgs#statix -- check .
+        run: nix run github:jzbor/nix-overlay#statix -- check .
       - name: 'Run flake checks'
         run: nix flake check
       - name: 'Discover flake packages'
