@@ -57,8 +57,6 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
-      - name: Install nix-fast-build
-        run: nix build nixpkgs#nix-fast-build --no-link
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
@@ -66,10 +64,21 @@ jobs:
           endpoint: ${{ secrets.ATTIC_ENDPOINT }}
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
-      - name: 'Build package "${{ matrix.package }}"'
-        run: nix run nixpkgs#nix-fast-build -- --eval-workers 4 --eval-max-memory-size 3000 --skip-cached --no-nom --flake ".#packages.x86_64-linux.${{ matrix.package }}"
-      - name: 'Push package closure to binary cache'
+          skip-push: true
+      - name: 'Checking binary cache'
+        id: check-binary-cache
         if: ${{ inputs.binary-cache == true }}
-        run: if [ -L ./result- ]; then attic push "${{ secrets.ATTIC_CACHE }}" ./result-; fi
+        run: if nix path-info ".#${{ matrix.package }}" --eval-store auto --store "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
+      - name: 'Build package "${{ matrix.package }}"'
+        if: ${{ inputs.binary-cache == false || steps.check-binary-cache.outputs.exists == null }}
+        run: nix build ".#${{ matrix.package }}"
+      - name: 'Push package closure to binary cache'
+        if: ${{ inputs.binary-cache == true && steps.check-binary-cache.outputs.exists == null }}
+        run: |
+          if [ -L ./result ]; then
+            attic push "${{ secrets.ATTIC_CACHE }}" ./result;
+          else
+            echo "No new paths built"
+          fi
 
 
