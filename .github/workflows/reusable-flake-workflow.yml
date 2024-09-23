@@ -97,7 +97,6 @@ jobs:
           endpoint: ${{ secrets.ATTIC_ENDPOINT }}
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
-          skip-push: true
       - name: 'Checking binary cache'
         id: check-binary-cache
         if: ${{ inputs.binary-cache == true }}
