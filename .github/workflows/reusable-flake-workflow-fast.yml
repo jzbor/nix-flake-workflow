@@ -68,7 +68,7 @@ jobs:
       - name: 'Checking binary cache'
         id: check-binary-cache
         if: ${{ inputs.binary-cache == true }}
-        run: if nix path-info ".#${{ matrix.package }}" --eval-store auto --store "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
+        run: if curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#${{ matrix.package }}" | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
       - name: 'Build package "${{ matrix.package }}"'
         if: ${{ inputs.binary-cache == false || steps.check-binary-cache.outputs.exists == null }}
         run: nix build ".#${{ matrix.package }}"
