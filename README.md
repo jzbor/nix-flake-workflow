@@ -10,14 +10,6 @@ nix run github:jzbor/nix-flake-workflow#add
 ```
 This will copy the [default template](./template.yml) to `.github/workflows/flake.yml`.
 
-There is also a `-fast` version, which combines all checking jobs with the "discover" job.
-This way the whole setup procedure is only run once and there is less overhead for these typically shorter running tasks.
-You can use this variant with the `add-fast` runnable:
-```sh
-nix run github:jzbor/nix-flake-workflow#add-fast
-```
-
-
 ## Setting a Attic Binary Cache
 First [generate an access token for the corresponding binary cache](https://docs.attic.rs/tutorial.html) and make sure it exists on the server.
 Then add the following secrets to the repository:
