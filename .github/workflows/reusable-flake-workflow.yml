@@ -9,6 +9,9 @@ on:
       magic-cache:
         required: false
         type: boolean
+      upload-artifacts:
+        required: false
+        type: boolean
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -107,15 +110,25 @@ jobs:
         if: ${{ inputs.binary-cache == true }}
         run: if curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#${{ matrix.package }}" | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
       - name: 'Build package "${{ matrix.package }}"'
-        if: ${{ inputs.binary-cache == false || steps.check-binary-cache.outputs.exists == null }}
-        run: nix build ".#${{ matrix.package }}"
+        id: build-package
+        if: ${{ inputs.binary-cache == false || inputs.upload-artifacts == true || steps.check-binary-cache.outputs.exists == null }}
+        run: |
+          nix build ".#${{ matrix.package }}"
+          printf "path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link)" | tee -a $GITHUB_OUTPUT
+      - name: 'Prepare package for upload as artifact'
+        id: prepare-artifact
+        if: ${{ inputs.upload-artifacts == true }}
+        run: |
+          cp -rvL "${{ steps.build-package.outputs.path }}" .
+          printf "artifact_path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+      - name: 'Upload package as artifact'
+        if: ${{ inputs.upload-artifacts == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: ${{ steps.prepare-artifact.outputs.artifact_path }}
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true && steps.check-binary-cache.outputs.exists == null }}
-        run: |
-          if [ -L ./result ]; then
-            attic push "${{ secrets.ATTIC_CACHE }}" ./result;
-          else
-            echo "No new paths built"
-          fi
+        run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
 
 
