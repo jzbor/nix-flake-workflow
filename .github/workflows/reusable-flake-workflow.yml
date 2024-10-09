@@ -38,7 +38,7 @@ jobs:
       - name: 'Download statix'
         run: nix build nixpkgs#statix --no-link
       - name: 'Run static checks'
-        run: nix run nixpkgs#statix -- check .
+        run: nix run nixpkgs#statix -- check
 
   dead-code-analysis:
     runs-on: ubuntu-latest
