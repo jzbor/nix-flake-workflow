@@ -12,6 +12,9 @@ on:
       upload-artifacts:
         required: false
         type: boolean
+      architectures:
+        required: false
+        type: string
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -31,26 +34,33 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
+
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
       - name: 'Download statix'
         run: nix build nixpkgs#statix --no-link
+
       - name: 'Run static checks'
         run: nix run nixpkgs#statix -- check
+
 
   dead-code-analysis:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
+
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
       - name: 'Download deadnix'
         run: nix build nixpkgs#deadnix --no-link
+
       - name: 'Run dead-code checks'
         run: nix run nixpkgs#deadnix -- -_ -f .
 
@@ -59,27 +69,43 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
+
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
       - name: 'Run flake checks'
         run: nix flake check
+
 
   discover:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.discover-step.outputs.packages }}
+      native-arch: ${{ steps.native-architecture.outputs.native }}
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
+
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
+      - name: 'Get native architecture'
+        id: native-architecture
+        run: printf "native=%s\n" "$(nix eval --impure --raw --expr "builtins.toJSON [builtins.currentSystem]")" | tee -a $GITHUB_OUTPUT
+
+      - name: 'Get architectures'
+        id: get-architectures-step
+        run: printf "architectures=%s\n" '${{ inputs.architectures || steps.native-architecture.outputs.native}}' | tee -a $GITHUB_OUTPUT
+
       - name: 'Discover flake packages'
         id: discover-step
-        run: printf "packages=%s\n" "$(nix eval .#packages.$(nix eval --impure --raw --expr 'builtins.currentSystem') --apply builtins.attrNames --json)" | tee -a $GITHUB_OUTPUT
+        run: |
+          printf "packages=%s\n" "$(echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do nix eval ".#packages.$arch" --apply "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json; done | jq -sc 'reduce .[] as $x ([]; . + $x)')" | tee -a $GITHUB_OUTPUT
+
 
   build:
     runs-on: ubuntu-latest
@@ -91,13 +117,27 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
+
+      - name: 'Install QEMU/binfmt'
+        if: ${{ inputs.architectures }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: 'Determine package architecture'
+        id: determine-architecture
+        run: |
+          printf 'arch=%s\n' "$(echo '${{ matrix.package }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
+
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra-conf: |
+            ${{ env.EXTRA_NIX_CONFIG }}
+            extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
+
       - name: 'Setup Magic Nix Cache'
         if: ${{ inputs.magic-cache == true }}
         uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
@@ -105,28 +145,33 @@ jobs:
           endpoint: ${{ secrets.ATTIC_ENDPOINT }}
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
+
       - name: 'Checking binary cache'
         id: check-binary-cache
         if: ${{ inputs.binary-cache == true }}
-        run: if curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#${{ matrix.package }}" | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
+        run: if curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.${{ matrix.package }}" | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo"; then echo "exists=1" | tee -a $GITHUB_OUTPUT; fi
+
       - name: 'Build package "${{ matrix.package }}"'
         id: build-package
         if: ${{ inputs.binary-cache == false || inputs.upload-artifacts == true || steps.check-binary-cache.outputs.exists == null }}
         run: |
-          nix build ".#${{ matrix.package }}"
-          printf "path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link)" | tee -a $GITHUB_OUTPUT
+          nix build ".#packages.${{ matrix.package }}"
+          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link)" | tee -a $GITHUB_OUTPUT
+
       - name: 'Prepare package for upload as artifact'
         id: prepare-artifact
         if: ${{ inputs.upload-artifacts == true }}
         run: |
           cp -rvL "${{ steps.build-package.outputs.path }}" .
-          printf "artifact_path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+          printf "artifact_path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+
       - name: 'Upload package as artifact'
         if: ${{ inputs.upload-artifacts == true }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.package }}
           path: ${{ steps.prepare-artifact.outputs.artifact_path }}
+
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true && steps.check-binary-cache.outputs.exists == null }}
         run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
