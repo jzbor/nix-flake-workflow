@@ -6,6 +6,9 @@ on:
       binary-cache:
         required: false
         type: boolean
+      blocklist:
+        required: false
+        type: string
       magic-cache:
         required: false
         type: boolean
@@ -120,7 +123,7 @@ jobs:
       - name: 'Discover flake packages'
         id: discover-step
         run: >
-          printf "packages=%n\n" "$(
+          printf "packages=%s\n" "$(
             echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do
                     nix eval ".#packages.$arch" --apply  "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json;
             done | jq -sc 'reduce .[] as $x ([]; . + $x)' | jq -r '.[]' | while read -r pkg; do
