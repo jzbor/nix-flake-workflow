@@ -104,6 +104,7 @@ jobs:
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
         with:
+          skip-push: true
           endpoint: ${{ secrets.ATTIC_ENDPOINT }}
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
