@@ -103,8 +103,10 @@ jobs:
 
       - name: 'Discover flake packages'
         id: discover-step
-        run: |
-          printf "packages=%s\n" "$(echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do nix eval ".#packages.$arch" --apply "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json; done | jq -sc 'reduce .[] as $x ([]; . + $x)')" | tee -a $GITHUB_OUTPUT
+        run: >
+          printf "packages=%s\n" "$(echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do
+            nix eval ".#packages.$arch" --apply "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json;
+          done | jq -sc 'reduce .[] as $x ([]; . + $x)')" | tee -a $GITHUB_OUTPUT
 
 
   build:
