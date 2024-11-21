@@ -128,6 +128,7 @@ jobs:
                     nix eval ".#packages.$arch" --apply  "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json;
             done | jq -sc 'reduce .[] as $x ([]; . + $x)' | jq -r '.[]' | while read -r pkg; do
                     if printf '${{ steps.get-blocklist.outputs.blocklist }}' | jq -r '.[]' | grep -x "$pkg" >/dev/null; then
+                            echo "  [SKIPPED] $pkg" >/dev/stderr;
                             continue;
                     fi;
                     (
