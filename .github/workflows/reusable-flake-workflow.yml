@@ -188,7 +188,7 @@ jobs:
         id: build-package
         run: |
           nix build ".#packages.${{ matrix.package }}"
-          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link)" | tee -a $GITHUB_OUTPUT
+          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link | head -n1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Prepare package for upload as artifact'
         id: prepare-artifact
