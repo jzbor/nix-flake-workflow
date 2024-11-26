@@ -135,7 +135,7 @@ jobs:
                     fi;
                     (
                       echo "Checking for $pkg in binary cache" >/dev/stderr;
-                      if [ "${{ inputs.binary-cache }}" = "true" ] && curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.$pkg" 2>>$logfile | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo" 1>/dev/null 2>&1; then
+                      if [ "${{ inputs.binary-cache }}" = "true" ] && curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.$pkg" 2>>$logfile | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo" --netrc-file ${XDG_CONFIG_HOME:-$HOME/.config}/nix/netrc 1>/dev/null 2>&1; then
                               echo "  [FOUND]   $pkg" >/dev/stderr;
                       else
                               echo "  [MISSING] $pkg" >/dev/stderr;
