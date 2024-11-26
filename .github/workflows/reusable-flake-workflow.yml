@@ -124,9 +124,10 @@ jobs:
       - name: 'Discover flake packages'
         id: discover-step
         run: >
+          logfile="$(mktemp)";
           printf "packages=%s\n" "$(
             echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do
-                    nix eval ".#packages.$arch" --apply  "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json;
+                    nix eval ".#packages.$arch" --apply  "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json --quiet 2>>$logfile;
             done | jq -sc 'reduce .[] as $x ([]; . + $x)' | jq -r '.[]' | while read -r pkg; do
                     if printf '${{ steps.get-blocklist.outputs.blocklist }}' | jq -r '.[]' | grep -x "$pkg" >/dev/null; then
                             echo "  [SKIPPED] $pkg" >/dev/stderr;
@@ -134,7 +135,7 @@ jobs:
                     fi;
                     (
                       echo "Checking for $pkg in binary cache" >/dev/stderr;
-                      if [ "${{ inputs.binary-cache }}" = "true" ] && curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.$pkg" | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo" 1>/dev/null 2>&1; then
+                      if [ "${{ inputs.binary-cache }}" = "true" ] && curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.$pkg" 2>>$logfile | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo" 1>/dev/null 2>&1; then
                               echo "  [FOUND]   $pkg" >/dev/stderr;
                       else
                               echo "  [MISSING] $pkg" >/dev/stderr;
@@ -142,7 +143,9 @@ jobs:
                       fi
                     ) &
             done | jq -sc 'reduce .[] as $x ([]; . + $x)'
-          )" | tee -a $GITHUB_OUTPUT
+          )" | tee -a $GITHUB_OUTPUT;
+          printf "\n\nstderr:\n%s\n" "$(cat $logfile)"
+
 
 
   build:
