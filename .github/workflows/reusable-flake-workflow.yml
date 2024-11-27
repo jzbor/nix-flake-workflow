@@ -18,6 +18,9 @@ on:
       architectures:
         required: false
         type: string
+      build-args:
+        required: false
+        type: string
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -190,7 +193,7 @@ jobs:
       - name: 'Build package "${{ matrix.package }}"'
         id: build-package
         run: |
-          nix build ".#packages.${{ matrix.package }}"
+          nix build ".#packages.${{ matrix.package }}" --no-link ${{ inputs.build-args }}
           printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link | head -n1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Prepare package for upload as artifact'
