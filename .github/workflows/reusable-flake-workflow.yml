@@ -21,6 +21,9 @@ on:
       build-args:
         required: false
         type: string
+      arm-runners:
+        required: false
+        type: boolean
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -152,7 +155,7 @@ jobs:
 
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: [discover, static-analysis, dead-code-analysis, flake-check]
     if: ${{ needs.discover.outputs.packages != '[]' }}
     strategy:
@@ -213,5 +216,3 @@ jobs:
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true }}
         run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
-
-
