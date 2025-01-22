@@ -150,7 +150,7 @@ jobs:
                     ) &
             done | jq -sc 'reduce .[] as $x ([]; . + $x)'
           )" | tee -a $GITHUB_OUTPUT;
-          printf "\n\nstderr:\n%s\n" "$(cat $logfile)"
+          printf "\n\n\nstderr:\n%s\n" "$(cat $logfile)"
 
 
 
@@ -165,8 +165,14 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
 
+      - name: 'Check if this is a native aarch64 runner'
+        if: ${{ inputs.arm-runners && startsWith(matrix.package, 'aarch64-linux.') }}
+        id: is-aarch64
+        run: |
+          printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
+
       - name: 'Install QEMU/binfmt'
-        if: ${{ inputs.architectures }}
+        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
         uses: docker/setup-qemu-action@v3
 
       - name: 'Determine package architecture'
