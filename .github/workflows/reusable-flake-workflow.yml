@@ -250,7 +250,9 @@ jobs:
       - name: 'Install Nix'
         uses: DeterminateSystems/nix-installer-action@main
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra-conf: |
+            ${{ env.EXTRA_NIX_CONFIG }}
+            max-jobs = 1
 
       - name: 'Run flake checks'
         run: nix flake check ${{ inputs.allow-impure && '--impure' || '' }}
