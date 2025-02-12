@@ -36,6 +36,7 @@ on:
         required: false
 
 env:
+  NIXPKGS_ALLOW_UNFREE: 1
   EXTRA_NIX_CONFIG: |
     min-free = 209715200   # 200 MiB
     max-free = 2147483648  # 2 GiB
