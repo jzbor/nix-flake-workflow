@@ -27,6 +27,9 @@ on:
       disable-eval-checks:
         required: false
         type: boolean
+      allow-impure:
+        required: false
+        type: boolean
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -93,7 +96,7 @@ jobs:
 
       - name: 'Run flake checks without building'
         if: ${{ ! inputs.disable-eval-checks }}
-        run: nix flake check --no-build
+        run: nix flake check --no-build ${{ inputs.allow-impure && '--impure' || '' }}
 
       - name: 'Alternatively run nix flake show'
         if: ${{ inputs.disable-eval-checks }}
@@ -214,15 +217,15 @@ jobs:
       - name: 'Build package "${{ matrix.package }}"'
         id: build-package
         run: |
-          nix build ".#packages.${{ matrix.package }}" --no-link ${{ inputs.build-args }}
-          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link | head -n1)" | tee -a $GITHUB_OUTPUT
+          nix build ".#packages.${{ matrix.package }}" --no-link ${{ inputs.build-args }} ${{ inputs.allow-impure && '--impure' || '' }}
+          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | head -n1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Prepare package for upload as artifact'
         id: prepare-artifact
         if: ${{ inputs.upload-artifacts == true }}
         run: |
           cp -rvL "${{ steps.build-package.outputs.path }}" .
-          printf "artifact_path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+          printf "artifact_path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
 
       - name: 'Upload package as artifact'
         if: ${{ inputs.upload-artifacts == true }}
@@ -249,4 +252,4 @@ jobs:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Run flake checks'
-        run: nix flake check
+        run: nix flake check ${{ inputs.allow-impure && '--impure' || '' }}
