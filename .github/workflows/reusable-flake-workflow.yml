@@ -24,6 +24,9 @@ on:
       arm-runners:
         required: false
         type: boolean
+      disable-eval-checks:
+        required: false
+        type: boolean
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -34,6 +37,8 @@ on:
 
 env:
   EXTRA_NIX_CONFIG: |
+    min-free = 209715200   # 200 MiB
+    max-free = 2147483648  # 2 GiB
     extra-trusted-public-keys = public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
     extra-substituters = https://cache.jzbor.de/public
 
@@ -73,7 +78,8 @@ jobs:
       - name: 'Run dead-code checks'
         run: nix run nixpkgs#deadnix -- -_ -L -f .
 
-  flake-check:
+
+  flake-eval-check:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout repository'
@@ -84,8 +90,13 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
-      - name: 'Run flake checks'
-        run: nix flake check
+      - name: 'Run flake checks without building'
+        if: ${{ ! inputs.disable-eval-checks }}
+        run: nix flake check --no-build
+
+      - name: 'Alternatively run nix flake show'
+        if: ${{ inputs.disable-eval-checks }}
+        run: nix flake show
 
 
   discover:
@@ -156,7 +167,7 @@ jobs:
 
   build:
     runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    needs: [discover, static-analysis, dead-code-analysis, flake-check]
+    needs: [discover, static-analysis, dead-code-analysis, flake-eval-check]
     if: ${{ needs.discover.outputs.packages != '[]' }}
     strategy:
       matrix:
@@ -222,3 +233,19 @@ jobs:
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true }}
         run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
+
+  flake-check:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: ${{ success() ||  needs.discover.outputs.packages == '[]' }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
+      - name: 'Run flake checks'
+        run: nix flake check
