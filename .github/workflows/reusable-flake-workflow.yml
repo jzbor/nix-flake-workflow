@@ -41,8 +41,8 @@ on:
 env:
   NIXPKGS_ALLOW_UNFREE: 1
   EXTRA_NIX_CONFIG: |
-    min-free = 209715200   # 200 MiB
-    max-free = 2147483648  # 2 GiB
+    min-free = 1073741824   # 1 GiB
+    max-free = 6442450944   # 6 GiB
     extra-trusted-public-keys = public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
     extra-substituters = https://cache.jzbor.de/public
 
