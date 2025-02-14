@@ -146,7 +146,7 @@ jobs:
         id: discover-step
         run: >
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
-          printf "packages=%s\n" "$(
+          checks="$(
             nix run github:jzbor/nix-flake-workflow \
             -- discover \
             --prefix packages \
@@ -154,7 +154,7 @@ jobs:
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
             ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
-          )" | tee -a $GITHUB_OUTPUT
+          )" && printf "checks=%s\n" "$checks"  | tee -a $GITHUB_OUTPUT
 
 
   discover-checks:
@@ -200,7 +200,7 @@ jobs:
         id: discover-step
         run: >
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
-          printf "checks=%s\n" "$(
+          checks="$(
             nix run github:jzbor/nix-flake-workflow \
             -- discover \
             --prefix checks \
@@ -208,7 +208,7 @@ jobs:
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
             ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
-          )" | tee -a $GITHUB_OUTPUT
+          )" && printf "checks=%s\n" "$checks"  | tee -a $GITHUB_OUTPUT
 
   build:
     runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'packages.aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
