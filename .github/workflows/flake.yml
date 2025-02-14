@@ -5,11 +5,13 @@ on:
 
 jobs:
   call:
-    uses: jzbor/nix-flake-workflow/.github/workflows/reusable-flake-workflow.yml@main
-    # with:
-    #   binary-cache: true
-    # secrets:
-    #   ATTIC_ENDPOINT: ${{ secrets.ATTIC_ENDPOINT }}
-    #   ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
-    #   ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+    uses: jzbor/nix-flake-workflow/.github/workflows/reusable-flake-workflow.yml@discover-rs
+    with:
+      binary-cache: true
+      architectures: '[ "x86_64-linux", "aarch64-linux" ]'
+      arm-runners: true
+    secrets:
+      ATTIC_ENDPOINT: ${{ secrets.ATTIC_ENDPOINT }}
+      ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}
+      ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
 
