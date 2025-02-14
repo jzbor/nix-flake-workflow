@@ -289,7 +289,7 @@ jobs:
   check:
     runs-on: ${{ inputs.arm-runners && startsWith(matrix.check, 'checks.aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: [discover-checks, static-analysis, dead-code-analysis, flake-eval-check, build]
-    if: ${{ needs.discover-checks.outputs.checks != '[]' }}
+    if: ${{ (success() || needs.discover-packages.outputs.packages == '[]') && needs.discover-checks.outputs.checks != '[]' }}
     strategy:
       matrix:
         check: ${{ fromJSON(needs.discover-checks.outputs.checks) }}
