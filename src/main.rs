@@ -100,7 +100,9 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
                 "--json",
                 "--quiet"
             ]).unwrap_or("[]".to_owned());
-            unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
+            let parsed = parse::<Vec<String>>(&output)
+                .unwrap_or(Vec::new());
+            unchecked_attrs.extend(parsed);
         }
     } else {
         let search_path = format!(".#{}", prefix);
@@ -113,7 +115,9 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             "--json",
             "--quiet"
         ]).unwrap_or("[]".to_owned());
-        unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
+        let parsed = parse::<Vec<String>>(&output)
+            .unwrap_or(Vec::new());
+        unchecked_attrs.extend(parsed);
     }
 
     unchecked_attrs.retain(|a| {
