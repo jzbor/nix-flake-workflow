@@ -123,7 +123,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
 
     unchecked_attrs.retain(|a| {
         if filter.contains(&a) {
-            eprintln!("  [SKIPPED]\t{}", a);
+            eprintln!("[SKIPPED]\t{}", a);
             false
         } else {
             true
@@ -137,15 +137,15 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         for attr_result in cached_channel {
             let (attr, is_cached) = attr_result?;
             if is_cached {
-                eprintln!("  [CACHED] \t{}", attr);
+                eprintln!("[CACHED] \t{}", attr);
             } else {
-                eprintln!("  [FOUND]  \t{}", attr);
+                eprintln!("[FOUND]  \t{}", attr);
                 attrs.push(attr)
             }
         }
     } else {
         for attr in unchecked_attrs {
-            eprintln!("  [FOUND]  \t{}", attr);
+            eprintln!("[FOUND]  \t{}", attr);
             attrs.push(attr)
         }
     }
@@ -170,7 +170,7 @@ fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
         let tx = tx.clone();
         let tx_middle = tx_middle.clone();
         eval_pool.execute(move || {
-            eprintln!("Calculating hash for {}", output);
+            eprintln!("   (Calculating hash for {})", output);
             let hash = match calc_hash(&output) {
                 Ok(hash) => hash,
                 Err(e) => {
@@ -194,7 +194,7 @@ fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
                 None => continue,
             };
 
-            eprintln!("Checking {} for {} ({})", cache, output, hash);
+            eprintln!("   (Checking {} for {} at {})", cache, output, hash);
             let tx = tx.clone();
             let cache = cache.clone();
             let auth = auth.clone();
