@@ -7,6 +7,7 @@ use std::sync::mpsc;
 
 
 const CACHE_CHECK_THREADS: usize = 16;
+const HASH_EVAL_THREADS: usize = 4;
 
 /// Discover and build flake stuff for CI
 #[derive(Parser)]
@@ -158,24 +159,35 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
 fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
         -> mpsc::Receiver<Result<(String, bool), String>> {
     let (tx, rx) = mpsc::channel();
-    let pool = ThreadPool::new(CACHE_CHECK_THREADS);
+    let (tx_middle, rx_middle) = mpsc::channel();
+    let eval_pool = ThreadPool::new(HASH_EVAL_THREADS);
+    let request_pool = ThreadPool::new(CACHE_CHECK_THREADS);
     let cache = cache.to_owned();
 
-    thread::spawn(move || {
-        for output in outputs.into_iter() {
+    for output in outputs.into_iter() {
+        let tx = tx.clone();
+        let tx_middle = tx_middle.clone();
+        eval_pool.execute(move || {
+            eprintln!("Calculating hash for {}", output);
             let hash = match calc_hash(&output) {
                 Ok(hash) => hash,
-                Err(e) => { tx.send(Err(e)).unwrap(); continue },
+                Err(e) => { tx.send(Err(e)).unwrap(); return },
             };
-            eprintln!("Checking {} for {} ({})", cache, output, hash);
-            let tx = tx.clone();
-            let cache = cache.clone();
-            let auth = auth.clone();
-            pool.execute(move || {
-                let is_cached = check_cache(&hash, &cache, auth);
-                tx.send(is_cached.map(|c| (output, c))).unwrap();
-            });
-        }
+
+            tx_middle.send((output, hash)).unwrap();
+        });
+    }
+
+    thread::spawn(move || {
+        let (output, hash) = rx_middle.recv().unwrap();
+        eprintln!("Checking {} for {} ({})", cache, output, hash);
+        let tx = tx.clone();
+        let cache = cache.clone();
+        let auth = auth.clone();
+        request_pool.execute(move || {
+            let is_cached = check_cache(&hash, &cache, auth);
+            tx.send(is_cached.map(|c| (output, c))).unwrap();
+        });
     });
 
     rx
