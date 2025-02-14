@@ -192,18 +192,23 @@ fn check_cache(output: &str, cache: &str, auth: Option<String>) -> Result<bool, 
     let hash = calc_hash(output)?;
     let request = format!("{}/{}.narinfo", cache, hash);
     eprintln!("Checking {} for {} ({})", cache, output, hash);
+
     let response = if let Some(token) = auth {
         ureq::get(request)
             .header("authorization", format!("bearer {}", token))
             .call()
-            .map_err(|e| format!("Unable to check binary cache ({})", e))?
     } else {
         ureq::get(request)
             .call()
-            .map_err(|e| format!("Unable to check binary cache ({})", e))?
     };
 
-    Ok(response.status() == ureq::http::status::StatusCode::OK)
+    match response {
+        Ok(_) => Ok(true),
+        Err(e) => match e {
+            ureq::Error::StatusCode(404) => Ok(false),
+            e => Err(format!("Unable to query binary cache ({})", e)),
+        },
+    }
 }
 
 fn check(output: String, cache: String) -> Result<(), String> {
