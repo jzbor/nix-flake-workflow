@@ -145,7 +145,6 @@ jobs:
       - name: 'Discover flake packages'
         id: discover-step
         run: >
-          logfile="$(mktemp)";
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
           printf "packages=%s\n" "$(
             nix run github:jzbor/nix-flake-workflow --override-input nixpkgs nixpkgs \
@@ -154,8 +153,7 @@ jobs:
             --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
-          )" | tee -a $GITHUB_OUTPUT;
-          printf "\n\n\nstderr:\n%s\n" "$(cat $logfile)"
+          )" | tee -a $GITHUB_OUTPUT
 
 
   build:
