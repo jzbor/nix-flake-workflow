@@ -329,22 +329,3 @@ jobs:
         run: |
           nix build ".#${{ matrix.check }}" --no-link ${{ inputs.build-args }} ${{ inputs.allow-impure && '--impure' || '' }}
           printf "path=%s\n" "$(nix build ".#${{ matrix.check }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | head -n1)" | tee -a $GITHUB_OUTPUT
-
-
-  flake-check:
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: ${{ success() ||  needs.discover-packages.outputs.packages == '[]' }}
-    steps:
-      - name: 'Checkout repository'
-        uses: actions/checkout@v4
-
-      - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
-        with:
-          extra-conf: |
-            ${{ env.EXTRA_NIX_CONFIG }}
-            max-jobs = 1
-
-      - name: 'Run flake checks'
-        run: nix flake check ${{ inputs.allow-impure && '--impure' || '' }}
