@@ -1,8 +1,13 @@
 use clap::{Parser, Subcommand};
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{fmt::Display, process};
+use threadpool::ThreadPool;
+use std::fmt::Display;
+use std::process;
+use std::sync::mpsc;
 
+
+const CACHE_CHECK_THREADS: usize = 16;
 
 /// Discover and build flake stuff for CI
 #[derive(Parser)]
@@ -113,8 +118,10 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     let mut attrs = Vec::new();
 
     if let Some(cache) = &check {
-        for attr in unchecked_attrs {
-            if check_cache(&attr, cache)? {
+        let cached_channel = check_cache_for_all(unchecked_attrs, cache);
+        for attr_result in cached_channel {
+            let (attr, is_cached) = attr_result?;
+            if is_cached {
                 eprintln!("[CACHED] \t{}", attr);
             } else {
                 eprintln!("[FOUND]  \t{}", attr);
@@ -132,6 +139,22 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         .map_err(|e| format!("Unable to encode result ({})", e))?;
     println!("{}", s);
     Ok(())
+}
+
+fn check_cache_for_all(outputs: Vec<String>, cache: &str) -> mpsc::Receiver<Result<(String, bool), String>> {
+    let (tx, rx) = mpsc::channel();
+    let pool = ThreadPool::new(CACHE_CHECK_THREADS);
+
+    for output in outputs.into_iter() {
+        let tx = tx.clone();
+        let cache = cache.to_owned();
+        pool.execute(move || {
+            let is_cached = check_cache(&output, &cache);
+            tx.send(is_cached.map(|c| (output, c))).unwrap();
+        });
+    }
+
+    rx
 }
 
 fn calc_path(output: &str) -> Result<String, String> {
