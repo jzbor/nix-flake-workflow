@@ -35,6 +35,10 @@ enum Command {
         /// Check binary cache first
         #[clap(long)]
         check: Option<String>,
+
+        /// Authorization for attic binary cache
+        #[clap(long)]
+        auth: Option<String>,
     },
 
     Path {
@@ -74,7 +78,7 @@ fn parse<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T, String> {
         .map_err(|e| format!("Unable to parse json ({})", e))
 }
 
-fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>) -> Result<(), String> {
+fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>, auth: Option<String>) -> Result<(), String> {
     let mut unchecked_attrs = Vec::new();
 
     let filter: Vec<String> = match &filter {
@@ -112,12 +116,19 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
     }
 
-    unchecked_attrs.retain(|a| { eprintln!("  [SKIPPED]\t{}", a); !filter.contains(&a) });
+    unchecked_attrs.retain(|a| {
+        if filter.contains(&a) {
+            eprintln!("  [SKIPPED]\t{}", a);
+            false
+        } else {
+            true
+        }
+    });
 
     let mut attrs = Vec::new();
 
     if let Some(cache) = &check {
-        let cached_channel = check_cache_for_all(unchecked_attrs, cache);
+        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth);
         for attr_result in cached_channel {
             let (attr, is_cached) = attr_result?;
             if is_cached {
@@ -140,15 +151,16 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     Ok(())
 }
 
-fn check_cache_for_all(outputs: Vec<String>, cache: &str) -> mpsc::Receiver<Result<(String, bool), String>> {
+fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>) -> mpsc::Receiver<Result<(String, bool), String>> {
     let (tx, rx) = mpsc::channel();
     let pool = ThreadPool::new(CACHE_CHECK_THREADS);
 
     for output in outputs.into_iter() {
         let tx = tx.clone();
         let cache = cache.to_owned();
+        let auth = auth.clone();
         pool.execute(move || {
-            let is_cached = check_cache(&output, &cache);
+            let is_cached = check_cache(&output, &cache, auth);
             tx.send(is_cached.map(|c| (output, c))).unwrap();
         });
     }
@@ -176,18 +188,26 @@ fn calc_hash(output: &str) -> Result<String, String> {
         .map(String::from)
 }
 
-fn check_cache(output: &str, cache: &str) -> Result<bool, String> {
+fn check_cache(output: &str, cache: &str, auth: Option<String>) -> Result<bool, String> {
     let hash = calc_hash(output)?;
     let request = format!("{}/{}.narinfo", cache, hash);
     eprintln!("Checking {} for {} ({})", cache, output, hash);
-    let response = ureq::get(request)
-        .call()
-        .map_err(|e| format!("Unable to check binary cache ({})", e))?;
+    let response = if let Some(token) = auth {
+        ureq::get(request)
+            .header("authorization", format!("bearer {}", token))
+            .call()
+            .map_err(|e| format!("Unable to check binary cache ({})", e))?
+    } else {
+        ureq::get(request)
+            .call()
+            .map_err(|e| format!("Unable to check binary cache ({})", e))?
+    };
+
     Ok(response.status() == ureq::http::status::StatusCode::OK)
 }
 
 fn check(output: String, cache: String) -> Result<(), String> {
-    let path = check_cache(&output, &cache)?;
+    let path = check_cache(&output, &cache, None)?;
     println!("{:?}", path);
     Ok(())
 }
@@ -219,7 +239,7 @@ fn main() {
 
     use Command::*;
     let result = match args.command {
-        Discover { prefix, systems, filter, check } => discover(prefix, systems, filter, check),
+        Discover { prefix, systems, filter, check, auth } => discover(prefix, systems, filter, check, auth),
         Check { output, cache } => check(output, cache),
         Path { output } => path(output),
         Hash { output } => hash(output),

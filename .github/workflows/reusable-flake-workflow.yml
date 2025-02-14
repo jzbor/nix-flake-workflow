@@ -152,6 +152,7 @@ jobs:
             --prefix packages \
             --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+            ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
           )" | tee -a $GITHUB_OUTPUT
 
@@ -276,6 +277,57 @@ jobs:
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true }}
         run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
+
+
+  check:
+    runs-on: ${{ inputs.arm-runners && startsWith(matrix.check, 'checks.aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    needs: [discover-checks, static-analysis, dead-code-analysis, flake-eval-check, build]
+    if: ${{ needs.discover-checks.outputs.checks != '[]' }}
+    strategy:
+      matrix:
+        check: ${{ fromJSON(needs.discover-checks.outputs.checks) }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+
+      - name: 'Check if this is a native aarch64 runner'
+        if: ${{ inputs.arm-runners && startsWith(matrix.check, 'checks.aarch64-linux.') }}
+        id: is-aarch64
+        run: |
+          printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
+
+      - name: 'Install QEMU/binfmt'
+        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: 'Determine checks architecture'
+        id: determine-architecture
+        run: |
+          printf 'arch=%s\n' "$(echo '${{ matrix.check }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
+
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            ${{ env.EXTRA_NIX_CONFIG }}
+            extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
+
+      - name: 'Setup Magic Nix Cache'
+        if: ${{ inputs.magic-cache == true }}
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: 'Setup Attic cache'
+        uses: ryanccn/attic-action@v0
+        if: ${{ inputs.binary-cache == true }}
+        with:
+          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
+          cache: ${{ secrets.ATTIC_CACHE }}
+          token: ${{ secrets.ATTIC_TOKEN }}
+
+      - name: 'Run check "${{ matrix.check }}"'
+        run: |
+          nix build ".#${{ matrix.check }}" --no-link ${{ inputs.build-args }} ${{ inputs.allow-impure && '--impure' || '' }}
+          printf "path=%s\n" "$(nix build ".#${{ matrix.check }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | head -n1)" | tee -a $GITHUB_OUTPUT
 
 
   flake-check:
