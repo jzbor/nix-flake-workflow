@@ -206,6 +206,7 @@ jobs:
             --prefix checks \
             --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+            ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
           )" | tee -a $GITHUB_OUTPUT
 
