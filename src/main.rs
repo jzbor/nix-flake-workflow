@@ -99,7 +99,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
                 &func,
                 "--json",
                 "--quiet"
-            ])?;
+            ]).unwrap_or("[]".to_owned());
             unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
         }
     } else {
@@ -112,7 +112,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             &func,
             "--json",
             "--quiet"
-        ])?;
+        ]).unwrap_or("[]".to_owned());
         unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
     }
 
