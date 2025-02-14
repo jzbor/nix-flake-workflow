@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use threadpool::ThreadPool;
 use std::fmt::Display;
-use std::process;
+use std::{process, thread};
 use std::sync::mpsc;
 
 
@@ -128,7 +128,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     let mut attrs = Vec::new();
 
     if let Some(cache) = &check {
-        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth)?;
+        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth);
         for attr_result in cached_channel {
             let (attr, is_cached) = attr_result?;
             if is_cached {
@@ -152,23 +152,29 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
 }
 
 fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
-        -> Result<mpsc::Receiver<Result<(String, bool), String>>, String> {
+        -> mpsc::Receiver<Result<(String, bool), String>> {
     let (tx, rx) = mpsc::channel();
     let pool = ThreadPool::new(CACHE_CHECK_THREADS);
+    let cache = cache.to_owned();
 
-    for output in outputs.into_iter() {
-        let hash = calc_hash(&output)?;
-        eprintln!("Checking {} for {} ({})", cache, output, hash);
-        let tx = tx.clone();
-        let cache = cache.to_owned();
-        let auth = auth.clone();
-        pool.execute(move || {
-            let is_cached = check_cache(&hash, &cache, auth);
-            tx.send(is_cached.map(|c| (output, c))).unwrap();
-        });
-    }
+    thread::spawn(move || {
+        for output in outputs.into_iter() {
+            let hash = match calc_hash(&output) {
+                Ok(hash) => hash,
+                Err(e) => { tx.send(Err(e)).unwrap(); continue },
+            };
+            eprintln!("Checking {} for {} ({})", cache, output, hash);
+            let tx = tx.clone();
+            let cache = cache.clone();
+            let auth = auth.clone();
+            pool.execute(move || {
+                let is_cached = check_cache(&hash, &cache, auth);
+                tx.send(is_cached.map(|c| (output, c))).unwrap();
+            });
+        }
+    });
 
-    Ok(rx)
+    rx
 }
 
 fn calc_path(output: &str) -> Result<String, String> {
