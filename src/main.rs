@@ -113,7 +113,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
     }
 
-    unchecked_attrs.retain(|a| { eprintln!("[SKIPPED]\t{}", a); filter.contains(&a) });
+    unchecked_attrs.retain(|a| { eprintln!("[SKIPPED]\t{}", a); !filter.contains(&a) });
 
     let mut attrs = Vec::new();
 
