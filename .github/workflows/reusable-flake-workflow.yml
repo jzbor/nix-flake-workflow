@@ -146,7 +146,7 @@ jobs:
         id: discover-step
         run: >
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
-          checks="$(
+          packages="$(
             nix run github:jzbor/nix-flake-workflow \
             -- discover \
             --prefix packages \
@@ -154,7 +154,7 @@ jobs:
             ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
             ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
             --filter '${{ steps.get-blocklist.outputs.blocklist }}'
-          )" && printf "checks=%s\n" "$checks"  | tee -a $GITHUB_OUTPUT
+          )" && printf "packages=%s\n" "$packages"  | tee -a $GITHUB_OUTPUT
 
 
   discover-checks:
