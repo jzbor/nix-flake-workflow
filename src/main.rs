@@ -112,7 +112,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
     }
 
-    unchecked_attrs.retain(|a| { eprintln!("[SKIPPED]\t{}", a); !filter.contains(&a) });
+    unchecked_attrs.retain(|a| { eprintln!("  [SKIPPED]\t{}", a); !filter.contains(&a) });
 
     let mut attrs = Vec::new();
 
@@ -121,15 +121,15 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         for attr_result in cached_channel {
             let (attr, is_cached) = attr_result?;
             if is_cached {
-                eprintln!("[CACHED] \t{}", attr);
+                eprintln!("  [CACHED] \t{}", attr);
             } else {
-                eprintln!("[FOUND]  \t{}", attr);
+                eprintln!("  [FOUND]  \t{}", attr);
                 attrs.push(attr)
             }
         }
     } else {
         for attr in unchecked_attrs {
-            eprintln!("[FOUND]  \t{}", attr);
+            eprintln!("  [FOUND]  \t{}", attr);
             attrs.push(attr)
         }
     }
@@ -177,7 +177,9 @@ fn calc_hash(output: &str) -> Result<String, String> {
 }
 
 fn check_cache(output: &str, cache: &str) -> Result<bool, String> {
-    let request = format!("{}/{}.narinfo", cache, calc_hash(output)?);
+    let hash = calc_hash(output)?;
+    let request = format!("{}/{}.narinfo", cache, hash);
+    eprintln!("Checking {} for {} ({})", cache, output, hash);
     let response = ureq::get(request)
         .call()
         .map_err(|e| format!("Unable to check binary cache ({})", e))?;
