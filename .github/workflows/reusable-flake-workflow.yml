@@ -43,8 +43,6 @@ env:
   EXTRA_NIX_CONFIG: |
     min-free = 1073741824   # 1 GiB
     max-free = 6442450944   # 6 GiB
-    extra-trusted-public-keys = public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
-    extra-substituters = https://cache.jzbor.de/public
 
 jobs:
   static-analysis:
@@ -131,7 +129,10 @@ jobs:
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Install nix-flake-workflow binary'
-        run: nix profile install github:jzbor/nix-flake-workflow
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Get native architecture'
         id: native-architecture
@@ -188,7 +189,10 @@ jobs:
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Install nix-flake-workflow binary'
-        run: nix profile install github:jzbor/nix-flake-workflow
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Get native architecture'
         id: native-architecture
