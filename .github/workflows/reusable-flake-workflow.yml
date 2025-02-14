@@ -30,6 +30,12 @@ on:
       allow-impure:
         required: false
         type: boolean
+      attic-endpoint:
+        required: false
+        type: string
+      attic-cache:
+        required: false
+        type: string
     secrets:
       ATTIC_ENDPOINT:
         required: false
@@ -124,8 +130,8 @@ jobs:
         if: ${{ inputs.binary-cache == true }}
         with:
           skip-push: true
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
+          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Install nix-flake-workflow binary'
@@ -149,7 +155,7 @@ jobs:
       - name: 'Discover flake packages'
         id: discover-step
         run: >
-          cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
+          cache="${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}/${{ secrets.ATTIC_CACHE || inputs.attic-cache }}";
           packages="$(
             nix-flake-workflow \
               discover \
@@ -184,8 +190,8 @@ jobs:
         if: ${{ inputs.binary-cache == true }}
         with:
           skip-push: true
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
+          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Install nix-flake-workflow binary'
@@ -209,7 +215,7 @@ jobs:
       - name: 'Discover flake checks'
         id: discover-step
         run: >
-          cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
+          cache="${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}/${{ secrets.ATTIC_CACHE || inputs.attic-cache }}";
           checks="$(
             nix-flake-workflow \
               discover \
@@ -261,8 +267,8 @@ jobs:
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
         with:
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
+          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Build package "${{ matrix.package }}"'
@@ -287,7 +293,7 @@ jobs:
 
       - name: 'Push package closure to binary cache'
         if: ${{ inputs.binary-cache == true }}
-        run: attic push "${{ secrets.ATTIC_CACHE }}" "${{ steps.build-package.outputs.path }}"
+        run: attic push "${{ secrets.ATTIC_CACHE || inputs.attic-cache }}" "${{ steps.build-package.outputs.path }}"
 
 
   check:
@@ -331,8 +337,8 @@ jobs:
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
         with:
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
+          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Run check "${{ matrix.check }}"'
