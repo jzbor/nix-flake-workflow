@@ -156,6 +156,58 @@ jobs:
           )" | tee -a $GITHUB_OUTPUT
 
 
+  discover-checks:
+    runs-on: ubuntu-latest
+    outputs:
+      checks: ${{ steps.discover-step.outputs.checks }}
+      native-arch: ${{ steps.native-architecture.outputs.native }}
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+
+      - name: 'Install Nix'
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+
+      - name: 'Setup Magic Nix Cache'
+        if: ${{ inputs.magic-cache == true }}
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: 'Setup Attic cache'
+        uses: ryanccn/attic-action@v0
+        if: ${{ inputs.binary-cache == true }}
+        with:
+          skip-push: true
+          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
+          cache: ${{ secrets.ATTIC_CACHE }}
+          token: ${{ secrets.ATTIC_TOKEN }}
+
+      - name: 'Get native architecture'
+        id: native-architecture
+        run: printf "native=%s\n" "$(nix eval --impure --raw --expr "builtins.toJSON [builtins.currentSystem]")" | tee -a $GITHUB_OUTPUT
+
+      - name: 'Get architectures'
+        id: get-architectures-step
+        run: printf "architectures=%s\n" '${{ inputs.architectures || steps.native-architecture.outputs.native}}' | tee -a $GITHUB_OUTPUT
+
+      - name: 'Get blocklist'
+        id: get-blocklist
+        run: printf "blocklist=%s\n" '${{ inputs.blocklist || '[]'}}' | tee -a $GITHUB_OUTPUT
+
+      - name: 'Discover flake checks'
+        id: discover-step
+        run: >
+          cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
+          printf "checks=%s\n" "$(
+            nix run github:jzbor/nix-flake-workflow --override-input nixpkgs nixpkgs \
+            -- discover \
+            --prefix checks \
+            --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
+            ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+            --filter '${{ steps.get-blocklist.outputs.blocklist }}'
+          )" | tee -a $GITHUB_OUTPUT
+
   build:
     runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'packages.aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: [discover-packages, static-analysis, dead-code-analysis, flake-eval-check]
