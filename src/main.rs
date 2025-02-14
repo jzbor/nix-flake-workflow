@@ -73,7 +73,7 @@ fn parse<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T, String> {
 fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>) -> Result<(), String> {
     let mut unchecked_attrs = Vec::new();
 
-    let filter = match &filter {
+    let filter: Vec<String> = match &filter {
         Some(s) => parse(s)?,
         None => Vec::new(),
     };
@@ -108,20 +108,22 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
         unchecked_attrs.extend(parse::<Vec<String>>(&output)?);
     }
 
+    unchecked_attrs.retain(|a| { eprintln!("[SKIPPED]\t{}", a); filter.contains(&a) });
+
     let mut attrs = Vec::new();
 
-    for attr in unchecked_attrs {
-        if filter.contains(&attr) {
-            eprintln!("[SKIPPED]\t{}", attr);
-        } else if let Some(cache) = &check {
+    if let Some(cache) = &check {
+        for attr in unchecked_attrs {
             if check_cache(&attr, cache)? {
                 eprintln!("[CACHED] \t{}", attr);
             } else {
                 eprintln!("[FOUND]  \t{}", attr);
                 attrs.push(attr)
             }
-        } else {
-            eprintln!("[FOUND]\t{}", attr);
+        }
+    } else {
+        for attr in unchecked_attrs {
+            eprintln!("[FOUND]  \t{}", attr);
             attrs.push(attr)
         }
     }
