@@ -5,7 +5,7 @@ on:
 
 jobs:
   call:
-    uses: jzbor/nix-flake-workflow/.github/workflows/reusable-flake-workflow.yml@discover-rs
+    uses: jzbor/nix-flake-workflow/.github/workflows/reusable-flake-workflow.yml@main
     with:
       binary-cache: true
       architectures: '[ "x86_64-linux", "aarch64-linux" ]'

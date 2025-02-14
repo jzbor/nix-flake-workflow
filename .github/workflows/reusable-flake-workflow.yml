@@ -148,7 +148,7 @@ jobs:
           logfile="$(mktemp)";
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
           printf "packages=%s\n" "$(
-            nix run github:jzbor/nix-flake-workflow/discover-rs --override-input nixpkgs nixpkgs \
+            nix run github:jzbor/nix-flake-workflow --override-input nixpkgs nixpkgs \
             -- discover \
             --prefix packages \
             --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
