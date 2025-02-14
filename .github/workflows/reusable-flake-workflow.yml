@@ -146,31 +146,20 @@ jobs:
         id: discover-step
         run: >
           logfile="$(mktemp)";
+          cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
           printf "packages=%s\n" "$(
-            echo '${{ steps.get-architectures-step.outputs.architectures }}' | jq -r '.[]' | while read -r arch; do
-                    nix eval ".#packages.$arch" --apply  "x: map(x: \"$arch.\" + x) (builtins.attrNames x)" --json --quiet 2>>$logfile;
-            done | jq -sc 'reduce .[] as $x ([]; . + $x)' | jq -r '.[]' | while read -r pkg; do
-                    if printf '${{ steps.get-blocklist.outputs.blocklist }}' | jq -r '.[]' | grep -x "$pkg" >/dev/null; then
-                            echo "  [SKIPPED] $pkg" >/dev/stderr;
-                            continue;
-                    fi;
-                    (
-                      echo "Checking for $pkg in binary cache" >/dev/stderr;
-                      if [ "${{ inputs.binary-cache }}" = "true" ] && curl -f "${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}/$(nix eval --raw ".#packages.$pkg" 2>>$logfile | sed 's/.nix.store.\([a-z0-9]*\).*/\1/').narinfo" --netrc-file ${XDG_CONFIG_HOME:-$HOME/.config}/nix/netrc 1>/dev/null 2>&1; then
-                              echo "  [FOUND]   $pkg" >/dev/stderr;
-                      else
-                              echo "  [MISSING] $pkg" >/dev/stderr;
-                              echo "[\"$pkg\"]";
-                      fi
-                    ) &
-            done | jq -sc 'reduce .[] as $x ([]; . + $x)'
+            nix run github:jzbor/nix-flake-workflow/discover-rs --override-input nixpkgs nixpkgs \
+            -- discover \
+            --prefix packages \
+            --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
+            ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+            --filter '${{ steps.get-blocklist.outputs.blocklist }}'
           )" | tee -a $GITHUB_OUTPUT;
           printf "\n\n\nstderr:\n%s\n" "$(cat $logfile)"
 
 
-
   build:
-    runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.arm-runners && startsWith(matrix.package, 'packages.aarch64-linux.') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: [discover-packages, static-analysis, dead-code-analysis, flake-eval-check]
     if: ${{ needs.discover-packages.outputs.packages != '[]' }}
     strategy:
@@ -181,7 +170,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Check if this is a native aarch64 runner'
-        if: ${{ inputs.arm-runners && startsWith(matrix.package, 'aarch64-linux.') }}
+        if: ${{ inputs.arm-runners && startsWith(matrix.package, 'packages.aarch64-linux.') }}
         id: is-aarch64
         run: |
           printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
@@ -217,15 +206,15 @@ jobs:
       - name: 'Build package "${{ matrix.package }}"'
         id: build-package
         run: |
-          nix build ".#packages.${{ matrix.package }}" --no-link ${{ inputs.build-args }} ${{ inputs.allow-impure && '--impure' || '' }}
-          printf "path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | head -n1)" | tee -a $GITHUB_OUTPUT
+          nix build ".#${{ matrix.package }}" --no-link ${{ inputs.build-args }} ${{ inputs.allow-impure && '--impure' || '' }}
+          printf "path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | head -n1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Prepare package for upload as artifact'
         id: prepare-artifact
         if: ${{ inputs.upload-artifacts == true }}
         run: |
           cp -rvL "${{ steps.build-package.outputs.path }}" .
-          printf "artifact_path=%s\n" "$(nix build ".#packages.${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+          printf "artifact_path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
 
       - name: 'Upload package as artifact'
         if: ${{ inputs.upload-artifacts == true }}
