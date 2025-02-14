@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use reqwest::StatusCode;
 use serde::Deserialize;
 use threadpool::ThreadPool;
 use std::fmt::Display;
@@ -179,9 +178,10 @@ fn calc_hash(output: &str) -> Result<String, String> {
 
 fn check_cache(output: &str, cache: &str) -> Result<bool, String> {
     let request = format!("{}/{}.narinfo", cache, calc_hash(output)?);
-    let response = reqwest::blocking::get(&request)
+    let response = ureq::get(request)
+        .call()
         .map_err(|e| format!("Unable to check binary cache ({})", e))?;
-    Ok(response.status() == StatusCode::OK)
+    Ok(response.status() == ureq::http::status::StatusCode::OK)
 }
 
 fn check(output: String, cache: String) -> Result<(), String> {
