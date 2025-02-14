@@ -130,6 +130,9 @@ jobs:
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
+      - name: 'Install nix-flake-workflow binary'
+        run: nix profile install github:jzbor/nix-flake-workflow
+
       - name: 'Get native architecture'
         id: native-architecture
         run: printf "native=%s\n" "$(nix eval --impure --raw --expr "builtins.toJSON [builtins.currentSystem]")" | tee -a $GITHUB_OUTPUT
@@ -147,13 +150,13 @@ jobs:
         run: >
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
           packages="$(
-            nix run github:jzbor/nix-flake-workflow \
-            -- discover \
-            --prefix packages \
-            --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
-            ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
-            ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
-            --filter '${{ steps.get-blocklist.outputs.blocklist }}'
+            nix-flake-workflow \
+              discover \
+              --prefix packages \
+              --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
+              ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+              ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
+              --filter '${{ steps.get-blocklist.outputs.blocklist }}'
           )" && printf "packages=%s\n" "$packages"  | tee -a $GITHUB_OUTPUT
 
 
@@ -184,6 +187,9 @@ jobs:
           cache: ${{ secrets.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
+      - name: 'Install nix-flake-workflow binary'
+        run: nix profile install github:jzbor/nix-flake-workflow
+
       - name: 'Get native architecture'
         id: native-architecture
         run: printf "native=%s\n" "$(nix eval --impure --raw --expr "builtins.toJSON [builtins.currentSystem]")" | tee -a $GITHUB_OUTPUT
@@ -201,13 +207,13 @@ jobs:
         run: >
           cache="${{ secrets.ATTIC_ENDPOINT }}/${{ secrets.ATTIC_CACHE }}";
           checks="$(
-            nix run github:jzbor/nix-flake-workflow \
-            -- discover \
-            --prefix checks \
-            --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
-            ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
-            ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
-            --filter '${{ steps.get-blocklist.outputs.blocklist }}'
+            nix-flake-workflow \
+              discover \
+              --prefix checks \
+              --systems '${{ steps.get-architectures-step.outputs.architectures }}' \
+              ${{ inputs.binary-cache && '--check' || '' }} ${{ inputs.binary-cache && '$cache' || '' }} \
+              ${{ inputs.binary-cache && '--auth' || '' }} ${{ inputs.binary-cache && secrets.ATTIC_TOKEN || '' }} \
+              --filter '${{ steps.get-blocklist.outputs.blocklist }}'
           )" && printf "checks=%s\n" "$checks"  | tee -a $GITHUB_OUTPUT
 
   build:
