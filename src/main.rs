@@ -164,6 +164,8 @@ fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
     let request_pool = ThreadPool::new(CACHE_CHECK_THREADS);
     let cache = cache.to_owned();
 
+    let noutputs = outputs.len();
+
     for output in outputs.into_iter() {
         let tx = tx.clone();
         let tx_middle = tx_middle.clone();
@@ -171,23 +173,36 @@ fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
             eprintln!("Calculating hash for {}", output);
             let hash = match calc_hash(&output) {
                 Ok(hash) => hash,
-                Err(e) => { tx.send(Err(e)).unwrap(); return },
+                Err(e) => {
+                    tx.send(Err(e)).unwrap();
+                    tx_middle.send(None).unwrap();
+                    return
+                },
             };
 
-            tx_middle.send((output, hash)).unwrap();
+            tx_middle.send(Some((output, hash))).unwrap();
         });
     }
 
     thread::spawn(move || {
-        let (output, hash) = rx_middle.recv().unwrap();
-        eprintln!("Checking {} for {} ({})", cache, output, hash);
-        let tx = tx.clone();
-        let cache = cache.clone();
-        let auth = auth.clone();
-        request_pool.execute(move || {
-            let is_cached = check_cache(&hash, &cache, auth);
-            tx.send(is_cached.map(|c| (output, c))).unwrap();
-        });
+        let mut counter = 0;
+        while counter < noutputs {
+            let opt = rx_middle.recv().unwrap();
+            counter += 1;
+            let (output, hash) = match opt {
+                Some(pair) => pair,
+                None => continue,
+            };
+
+            eprintln!("Checking {} for {} ({})", cache, output, hash);
+            let tx = tx.clone();
+            let cache = cache.clone();
+            let auth = auth.clone();
+            request_pool.execute(move || {
+                let is_cached = check_cache(&hash, &cache, auth);
+                tx.send(is_cached.map(|c| (output, c))).unwrap();
+            });
+        }
     });
 
     rx
