@@ -128,7 +128,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     let mut attrs = Vec::new();
 
     if let Some(cache) = &check {
-        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth);
+        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth)?;
         for attr_result in cached_channel {
             let (attr, is_cached) = attr_result?;
             if is_cached {
@@ -151,21 +151,24 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     Ok(())
 }
 
-fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>) -> mpsc::Receiver<Result<(String, bool), String>> {
+fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
+        -> Result<mpsc::Receiver<Result<(String, bool), String>>, String> {
     let (tx, rx) = mpsc::channel();
     let pool = ThreadPool::new(CACHE_CHECK_THREADS);
 
     for output in outputs.into_iter() {
+        let hash = calc_hash(&output)?;
+        eprintln!("Checking {} for {} ({})", cache, output, hash);
         let tx = tx.clone();
         let cache = cache.to_owned();
         let auth = auth.clone();
         pool.execute(move || {
-            let is_cached = check_cache(&output, &cache, auth);
+            let is_cached = check_cache(&hash, &cache, auth);
             tx.send(is_cached.map(|c| (output, c))).unwrap();
         });
     }
 
-    rx
+    Ok(rx)
 }
 
 fn calc_path(output: &str) -> Result<String, String> {
@@ -188,10 +191,8 @@ fn calc_hash(output: &str) -> Result<String, String> {
         .map(String::from)
 }
 
-fn check_cache(output: &str, cache: &str, auth: Option<String>) -> Result<bool, String> {
-    let hash = calc_hash(output)?;
+fn check_cache(hash: &str, cache: &str, auth: Option<String>) -> Result<bool, String> {
     let request = format!("{}/{}.narinfo", cache, hash);
-    eprintln!("Checking {} for {} ({})", cache, output, hash);
 
     let response = if let Some(token) = auth {
         ureq::get(request)
@@ -212,7 +213,8 @@ fn check_cache(output: &str, cache: &str, auth: Option<String>) -> Result<bool, 
 }
 
 fn check(output: String, cache: String) -> Result<(), String> {
-    let path = check_cache(&output, &cache, None)?;
+    let hash = calc_hash(&output)?;
+    let path = check_cache(&hash, &cache, None)?;
     println!("{:?}", path);
     Ok(())
 }
