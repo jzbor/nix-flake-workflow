@@ -3,7 +3,7 @@
 
 let
   getMuslTarget = system: if system == "x86_64-linux" then "x86_64-unknown-linux-musl" else "aarch64-unknown-linux-musl";
-  getMuslCraneLib = pkgs: (inputs.crane.mkLib pkgs).overrideToolchain (p: p.rust-bin.stable.latest.default.override {
+  getMuslCraneLib = pkgs: (inputs.crane.mkLib pkgs).overrideToolchain (inputs.rust-overlay.packages.${pkgs.system}.rust.override {
     targets = [ (getMuslTarget pkgs.system) ];
   });
 in {
