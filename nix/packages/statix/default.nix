@@ -1,8 +1,1 @@
-{ flake, pkgs }:
-
-flake.lib.buildStaticPackage pkgs {
-    pname = "statix";
-    inherit (pkgs.statix) version src;
-    cargoLock = ./Cargo.lock;
-}
-
+{ pkgs }: pkgs.pkgsStatic.statix

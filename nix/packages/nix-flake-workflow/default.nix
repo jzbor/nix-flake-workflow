@@ -1,10 +1,8 @@
-{ flake, inputs, pkgs }:
+{ flake, pkgs }:
 
-let
-  craneLib = inputs.crane.mkLib pkgs;
-in flake.lib.buildStaticPackage pkgs {
-    pname = "nix-flake-workflow";
-    version = "0.1.0";
-    src = craneLib.cleanCargoSource flake;
+pkgs.pkgsStatic.rustPlatform.buildRustPackage {
+  pname = "nix-flake-workflow";
+  version = "0.1.0";
+  cargoLock.lockFile = ../../../Cargo.lock;
+  src = flake;
 }
-
