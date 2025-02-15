@@ -1,1 +1,1 @@
-{ pkgs }: pkgs.pkgsStatic.statix
+{ pkgs }: pkgs.pkgsStatic.deadnix
