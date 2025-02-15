@@ -11,6 +11,9 @@ in {
     strictDeps = true;
     CARGO_BUILD_TARGET = getMuslTarget pkgs.system;
     CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+    CARGO_PROFILE_RELEASE_STRIP = "true";
+    CARGO_PROFILE_RELEASE_LTO = "thin";
+    CARGO_PROFILE_RELEASE_OPT_LEVEL = "s";
   } // attrs);
 }
 

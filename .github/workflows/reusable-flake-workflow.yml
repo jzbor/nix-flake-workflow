@@ -62,11 +62,14 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
-      - name: 'Download statix'
-        run: nix build nixpkgs#statix --no-link
+      - name: 'Install statix'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#statix \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Run static checks'
-        run: nix run nixpkgs#statix -- check
+        run: statix check
 
 
   dead-code-analysis:
@@ -80,11 +83,14 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
-      - name: 'Download deadnix'
-        run: nix build nixpkgs#deadnix --no-link
+      - name: 'Install deadnix'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#deadnix \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Run dead-code checks'
-        run: nix run nixpkgs#deadnix -- -_ -L -f .
+        run: deadnix -_ -L -f .
 
 
   flake-eval-check:
@@ -125,6 +131,18 @@ jobs:
         if: ${{ inputs.magic-cache == true }}
         uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: 'Install attic-client'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#attic-client \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
+
+      - name: 'Install nix-flake-workflow binary'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
+
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
@@ -133,12 +151,6 @@ jobs:
           endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
           cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
-
-      - name: 'Install nix-flake-workflow binary'
-        run: |
-          nix profile install github:jzbor/nix-flake-workflow \
-          --extra-substituters https://cache.jzbor.de/public \
-          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Get native architecture'
         id: native-architecture
@@ -185,6 +197,18 @@ jobs:
         if: ${{ inputs.magic-cache == true }}
         uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: 'Install attic-client'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#attic-client \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
+
+      - name: 'Install nix-flake-workflow binary'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
+
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
         if: ${{ inputs.binary-cache == true }}
@@ -193,12 +217,6 @@ jobs:
           endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
           cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
           token: ${{ secrets.ATTIC_TOKEN }}
-
-      - name: 'Install nix-flake-workflow binary'
-        run: |
-          nix profile install github:jzbor/nix-flake-workflow \
-          --extra-substituters https://cache.jzbor.de/public \
-          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Get native architecture'
         id: native-architecture
@@ -262,6 +280,12 @@ jobs:
       - name: 'Setup Magic Nix Cache'
         if: ${{ inputs.magic-cache == true }}
         uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: 'Install attic-client'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#attic-client \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0
@@ -332,6 +356,12 @@ jobs:
       - name: 'Setup Magic Nix Cache'
         if: ${{ inputs.magic-cache == true }}
         uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: 'Install attic-client'
+        run: |
+          nix profile install github:jzbor/nix-flake-workflow#attic-client \
+          --extra-substituters https://cache.jzbor.de/public \
+          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
 
       - name: 'Setup Attic cache'
         uses: ryanccn/attic-action@v0

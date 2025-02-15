@@ -10,6 +10,7 @@ jobs:
       binary-cache: true
       architectures: '[ "x86_64-linux", "aarch64-linux" ]'
       arm-runners: true
+      disable-eval-checks: true
     secrets:
       ATTIC_ENDPOINT: ${{ secrets.ATTIC_ENDPOINT }}
       ATTIC_CACHE: ${{ secrets.ATTIC_CACHE }}

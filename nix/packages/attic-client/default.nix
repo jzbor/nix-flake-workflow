@@ -1,0 +1,1 @@
+{ pkgs }: pkgs.attic-client
