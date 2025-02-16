@@ -81,7 +81,7 @@ fn parse<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T, String> {
         .map_err(|e| format!("Unable to parse json ({})", e))
 }
 
-fn nix_discover_func(prefix: String, system: Option<String>, blocklist: Option<&str>) -> String {
+fn nix_discover_func(prefix: &str, system: Option<&str>, blocklist: Option<&str>) -> String {
     let prefix_str = match system {
         Some(sys) => format!("\"{}.{}\"", prefix, sys),
         None => format!("\"{}\"", prefix),
@@ -105,7 +105,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
 
         for system in systems {
             let search_path = format!(".#{}.{}", prefix, system);
-            let func = nix_discover_func(format!("{}.{}", prefix, system), Some(system), filter.as_deref());
+            let func = nix_discover_func(&prefix, Some(&system), filter.as_deref());
             let output = nix(&[
                 "eval",
                 &search_path,
@@ -116,11 +116,12 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             ]).unwrap_or("[]".to_owned());
             let parsed = parse::<HashMap<String, String>>(&output)
                 .unwrap_or(HashMap::new());
+            eprintln!("output: {:#?}", parsed);
             unchecked_attrs.extend(parsed);
         }
     } else {
         let search_path = format!(".#{}", prefix);
-        let func = format!("builtins.attrNames");
+        let func = nix_discover_func(&prefix, None, filter.as_deref());
         let output = nix(&[
             "eval",
             &search_path,
