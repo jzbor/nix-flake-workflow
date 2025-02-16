@@ -127,30 +127,11 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
-      - name: 'Setup Magic Nix Cache'
-        if: ${{ inputs.magic-cache == true }}
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: 'Install attic-client'
-        run: |
-          nix profile install github:jzbor/nix-flake-workflow#attic-client \
-          --extra-substituters https://cache.jzbor.de/public \
-          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
-
       - name: 'Install nix-flake-workflow binary'
         run: |
           nix profile install github:jzbor/nix-flake-workflow \
           --extra-substituters https://cache.jzbor.de/public \
           --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
-
-      - name: 'Setup Attic cache'
-        uses: ryanccn/attic-action@v0
-        if: ${{ inputs.binary-cache == true }}
-        with:
-          skip-push: true
-          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
-          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
-          token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Get native architecture'
         id: native-architecture
@@ -193,30 +174,11 @@ jobs:
         with:
           extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
 
-      - name: 'Setup Magic Nix Cache'
-        if: ${{ inputs.magic-cache == true }}
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: 'Install attic-client'
-        run: |
-          nix profile install github:jzbor/nix-flake-workflow#attic-client \
-          --extra-substituters https://cache.jzbor.de/public \
-          --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
-
       - name: 'Install nix-flake-workflow binary'
         run: |
           nix profile install github:jzbor/nix-flake-workflow \
           --extra-substituters https://cache.jzbor.de/public \
           --extra-trusted-public-keys public:AdkE6qSLmWKFX4AptLFl+n+RTPIo1lrBhT2sPgfg5s4=
-
-      - name: 'Setup Attic cache'
-        uses: ryanccn/attic-action@v0
-        if: ${{ inputs.binary-cache == true }}
-        with:
-          skip-push: true
-          endpoint: ${{ secrets.ATTIC_ENDPOINT || inputs.attic-endpoint }}
-          cache: ${{ secrets.ATTIC_CACHE || inputs.attic-cache }}
-          token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: 'Get native architecture'
         id: native-architecture
