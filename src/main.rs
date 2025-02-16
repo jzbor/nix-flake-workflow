@@ -176,7 +176,6 @@ fn check_cache_for_all(outputs: HashMap<String, String>, cache: &str, auth: Opti
     let cache = cache.to_owned();
 
     for (output, hash) in outputs {
-        eprintln!("   (Checking {} for {} at {})", cache, output, hash);
         let tx = tx.clone();
         let cache = cache.clone();
         let auth = auth.clone();
