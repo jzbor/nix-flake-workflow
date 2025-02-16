@@ -11,6 +11,9 @@ const CACHE_CHECK_THREADS: usize = 16;
 const DISCOVER_NIX_FUNC: &str = include_str!("discover.nix");
 const SKIP_TOKEN: &str = "SKIPPED";
 
+/// Channel type cache queries
+type CacheCheckChannel = mpsc::Receiver<Result<(String, (String, bool)), String>>;
+
 /// Discover and build flake stuff for CI
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -19,50 +22,44 @@ struct Args {
     command: Command,
 }
 
-#[derive(Clone, Debug, Subcommand)]
+#[derive(Subcommand)]
 enum Command {
     /// Discover flake outputs
     Discover {
-        /// Search the flake for this output type
-        #[clap(long)]
-        prefix: String,
-
-        /// Also descend into the specified system sub-attributes
-        #[clap(long)]
-        systems: Option<String>,
-
-        /// Filter out these outputs
-        #[clap(long)]
-        filter: Option<String>,
-
-        /// Check binary cache first
-        #[clap(long)]
-        check: Option<String>,
-
-        /// Authorization for attic binary cache
-        #[clap(long)]
-        auth: Option<String>,
+        #[clap(flatten)]
+        args: DiscoverArgs,
     },
-
-    Path {
-        #[clap(long)]
-        output: String,
-    },
-
-    Hash {
-        #[clap(long)]
-        output: String,
-    },
-
-    Check {
-        #[clap(long)]
-        output: String,
-
-        #[clap(long)]
-        cache: String,
-    }
 }
 
+#[derive(Parser)]
+struct DiscoverArgs {
+    /// Search the flake for this output type
+    #[clap(long)]
+    prefix: String,
+
+    /// Also descend into the specified system sub-attributes
+    #[clap(long)]
+    systems: Option<String>,
+
+    /// Filter out these outputs
+    #[clap(long)]
+    filter: Option<String>,
+
+    /// Check binary cache first
+    #[clap(long)]
+    check: Option<String>,
+
+    /// Authorization for attic binary cache
+    #[clap(long)]
+    auth: Option<String>,
+
+    /// Return attribute set with names and hashes
+    #[clap(long)]
+    with_hashes: bool,
+}
+
+
+/// Run a nix command and return its output
 fn nix(args: &[&str]) -> Result<String, String> {
     // eprintln!("$ nix {:?}", args);
     let cmd_out = process::Command::new("nix")
@@ -76,16 +73,15 @@ fn nix(args: &[&str]) -> Result<String, String> {
         .map_err(|e| format!("Unable to decode Nix output ({})", e))
 }
 
+/// Parse a serialized json object
 fn parse<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T, String> {
     serde_json::from_str(s)
         .map_err(|e| format!("Unable to parse json ({})", e))
 }
 
-fn nix_discover_func(prefix: &str, system: Option<&str>, blocklist: Option<&str>) -> String {
-    let prefix_str = match system {
-        Some(sys) => format!("\"{}.{}\"", prefix, sys),
-        None => format!("\"{}\"", prefix),
-    };
+/// Fill the `DISCOVER_NIX_FUNC` template for flake discover
+fn nix_discover_func(label: &str, blocklist: Option<&str>) -> String {
+    let prefix_str = format!("\"{}\"", label);
     let skip_str = format!("\"{}\"", SKIP_TOKEN);
     let blocklist_str = match blocklist {
         Some(list) => format!("\"{}\"", list.replace("\"", "\\\"")),
@@ -97,80 +93,12 @@ fn nix_discover_func(prefix: &str, system: Option<&str>, blocklist: Option<&str>
         .replace("BLOCKLIST", &blocklist_str)
 }
 
-fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>, auth: Option<String>) -> Result<(), String> {
-    let mut unchecked_attrs = HashMap::new();
-
-    if let Some(systems) = systems {
-        let systems: Vec<String> = parse(&systems)?;
-
-        for system in systems {
-            let search_path = format!(".#{}.{}", prefix, system);
-            let func = nix_discover_func(&prefix, Some(&system), filter.as_deref());
-            let output = nix(&[
-                "eval",
-                &search_path,
-                "--apply",
-                &func,
-                "--json",
-                "--quiet"
-            ]).unwrap_or("[]".to_owned());
-            let parsed = parse::<HashMap<String, String>>(&output)
-                .unwrap_or(HashMap::new());
-            unchecked_attrs.extend(parsed);
-        }
-    } else {
-        let search_path = format!(".#{}", prefix);
-        let func = nix_discover_func(&prefix, None, filter.as_deref());
-        let output = nix(&[
-            "eval",
-            &search_path,
-            "--apply",
-            &func,
-            "--json",
-            "--quiet"
-        ]).unwrap_or("[]".to_owned());
-        let parsed = parse::<HashMap<String, String>>(&output)
-            .unwrap_or(HashMap::new());
-        unchecked_attrs.extend(parsed);
-    }
-
-    unchecked_attrs.retain(|k, v| {
-        if v == SKIP_TOKEN {
-            eprintln!("[SKIPPED]\t{}", k);
-            false
-        } else {
-            true
-        }
-    });
-
-    let mut attrs = Vec::new();
-
-    if let Some(cache) = &check {
-        let cached_channel = check_cache_for_all(unchecked_attrs, cache, auth);
-        for attr_result in cached_channel {
-            let (attr, is_cached) = attr_result?;
-            if is_cached {
-                eprintln!("[CACHED] \t{}", attr);
-            } else {
-                eprintln!("[FOUND]  \t{}", attr);
-                attrs.push(attr)
-            }
-        }
-    } else {
-        for (attr, _) in unchecked_attrs {
-            eprintln!("[FOUND]  \t{}", attr);
-            attrs.push(attr)
-        }
-    }
-
-    let s = serde_json::to_string(&attrs)
-        .map_err(|e| format!("Unable to encode result ({})", e))?;
-    println!("{}", s);
-    Ok(())
-}
-
-fn check_cache_for_all(outputs: HashMap<String, String>, cache: &str, auth: Option<String>)
-        -> mpsc::Receiver<Result<(String, bool), String>> {
+/// Check `cache` for derivations.
+///
+/// `outputs` is a map from output labels to hashes
+///
+/// returns a channel over which the responses are communicated
+fn check_cache_for_all(outputs: HashMap<String, String>, cache: &str, auth: Option<String>) -> CacheCheckChannel {
     let (tx, rx) = mpsc::channel();
     let request_pool = ThreadPool::new(CACHE_CHECK_THREADS);
     let cache = cache.to_owned();
@@ -181,33 +109,14 @@ fn check_cache_for_all(outputs: HashMap<String, String>, cache: &str, auth: Opti
         let auth = auth.clone();
         request_pool.execute(move || {
             let is_cached = check_cache(&hash, &cache, auth);
-            tx.send(is_cached.map(|c| (output, c))).unwrap();
+            tx.send(is_cached.map(|c| (output, (hash, c)))).unwrap();
         });
     }
 
     rx
 }
 
-fn calc_path(output: &str) -> Result<String, String> {
-    let flake_ref = format!(".#{}", output);
-    let output = nix(&[
-        "eval",
-        &flake_ref,
-        "--json",
-        "--quiet"
-    ])?;
-    parse(&output)
-}
-
-fn calc_hash(output: &str) -> Result<String, String> {
-    let path = calc_path(output)?;
-     path.replace("/nix/store/", "")
-        .split('-')
-        .next()
-        .ok_or("Cannot derive path from malformed store path".to_owned())
-        .map(String::from)
-}
-
+/// Check binary cache (`cache`) for hash (`hash`) while optionally authenticating with `auth`
 fn check_cache(hash: &str, cache: &str, auth: Option<String>) -> Result<bool, String> {
     let request = format!("{}/{}.narinfo", cache, hash);
 
@@ -229,33 +138,79 @@ fn check_cache(hash: &str, cache: &str, auth: Option<String>) -> Result<bool, St
     }
 }
 
-fn check(output: String, cache: String) -> Result<(), String> {
-    let hash = calc_hash(&output)?;
-    let path = check_cache(&hash, &cache, None)?;
-    println!("{:?}", path);
-    Ok(())
-}
-
-fn path(output: String) -> Result<(), String> {
-    let path = calc_path(&output)?;
-    println!("{}", path);
-    Ok(())
-}
-
-fn hash(output: String) -> Result<(), String> {
-    let path = calc_hash(&output)?;
-    println!("{}", path);
-    Ok(())
-}
-
+/// Resolve any errors by displaying an error message and exiting
 fn resolve<T, E: Display>(result: Result<T, E>) -> T {
     match result {
         Ok(t) => t,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1)
-        },
+        Err(e) => { eprintln!("Error: {}", e); process::exit(1) },
     }
+}
+
+fn discover(args: DiscoverArgs) -> Result<(), String> {
+    let mut unchecked_attrs = HashMap::new();
+
+    let output_labels: Vec<_> = match args.systems {
+        Some(systems) => parse::<Vec<String>>(&systems)?
+            .into_iter()
+            .map(|s| format!("{}.{}", args.prefix, s))
+            .collect(),
+        None => vec!(args.prefix),
+    };
+
+    for output_label in output_labels {
+        let flake_ref = format!(".#{}", output_label);
+        let func = nix_discover_func(&output_label, args.filter.as_deref());
+        let output = nix(&[
+            "eval",
+            &flake_ref,
+            "--apply",
+            &func,
+            "--json",
+            "--quiet"
+        ]).unwrap_or("[]".to_owned());
+        let parsed = parse::<HashMap<String, String>>(&output)
+            .unwrap_or_default();
+        unchecked_attrs.extend(parsed);
+    }
+
+    unchecked_attrs.retain(|k, v| {
+        if v == SKIP_TOKEN {
+            eprintln!("[SKIPPED]\t{}", k);
+            false
+        } else {
+            true
+        }
+    });
+
+    let mut attrs = HashMap::new();
+
+    if let Some(cache) = &args.check {
+        let cached_channel = check_cache_for_all(unchecked_attrs, cache, args.auth);
+        for attr_result in cached_channel {
+            let (attr, (hash, is_cached)) = attr_result?;
+            if is_cached {
+                eprintln!("[CACHED] \t{}", attr);
+            } else {
+                eprintln!("[BUILD]  \t{}", attr);
+                attrs.insert(attr, hash);
+            }
+        }
+    } else {
+        attrs = unchecked_attrs;
+        for attr in attrs.keys() {
+            eprintln!("[BUILD]  \t{}", attr);
+        }
+    }
+
+    let s = if args.with_hashes {
+        serde_json::to_string(&attrs)
+            .map_err(|e| format!("Unable to encode result ({})", e))?
+    } else {
+        serde_json::to_string(&attrs.keys().collect::<Vec<_>>())
+            .map_err(|e| format!("Unable to encode result ({})", e))?
+    };
+    println!("{}", s);
+    Ok(())
 }
 
 fn main() {
@@ -263,10 +218,7 @@ fn main() {
 
     use Command::*;
     let result = match args.command {
-        Discover { prefix, systems, filter, check, auth } => discover(prefix, systems, filter, check, auth),
-        Check { output, cache } => check(output, cache),
-        Path { output } => path(output),
-        Hash { output } => hash(output),
+        Discover { args } => discover(args),
     };
     resolve(result);
 }
