@@ -116,7 +116,6 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             ]).unwrap_or("[]".to_owned());
             let parsed = parse::<HashMap<String, String>>(&output)
                 .unwrap_or(HashMap::new());
-            eprintln!("output: {:#?}", parsed);
             unchecked_attrs.extend(parsed);
         }
     } else {
