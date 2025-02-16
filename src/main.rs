@@ -1,13 +1,15 @@
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 use threadpool::ThreadPool;
+use std::collections::HashMap;
 use std::fmt::Display;
-use std::{process, thread};
+use std::process;
 use std::sync::mpsc;
 
 
 const CACHE_CHECK_THREADS: usize = 16;
-const HASH_EVAL_THREADS: usize = 4;
+const DISCOVER_NIX_FUNC: &str = include_str!("discover.nix");
+const SKIP_TOKEN: &str = "SKIPPED";
 
 /// Discover and build flake stuff for CI
 #[derive(Parser)]
@@ -79,20 +81,31 @@ fn parse<'a, T: Deserialize<'a>>(s: &'a str) -> Result<T, String> {
         .map_err(|e| format!("Unable to parse json ({})", e))
 }
 
-fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>, auth: Option<String>) -> Result<(), String> {
-    let mut unchecked_attrs = Vec::new();
-
-    let filter: Vec<String> = match &filter {
-        Some(s) => parse(s)?,
-        None => Vec::new(),
+fn nix_discover_func(prefix: String, system: Option<String>, blocklist: Option<&str>) -> String {
+    let prefix_str = match system {
+        Some(sys) => format!("\"{}.{}\"", prefix, sys),
+        None => format!("\"{}\"", prefix),
     };
+    let skip_str = format!("\"{}\"", SKIP_TOKEN);
+    let blocklist_str = match blocklist {
+        Some(list) => format!("\"{}\"", list.replace("\"", "\\\"")),
+        None => "\"[]\"".to_owned(),
+    };
+
+    DISCOVER_NIX_FUNC.replace("PREFIX", &prefix_str)
+        .replace("SKIP_TOKEN", &skip_str)
+        .replace("BLOCKLIST", &blocklist_str)
+}
+
+fn discover(prefix: String, systems: Option<String>, filter: Option<String>, check: Option<String>, auth: Option<String>) -> Result<(), String> {
+    let mut unchecked_attrs = HashMap::new();
 
     if let Some(systems) = systems {
         let systems: Vec<String> = parse(&systems)?;
 
         for system in systems {
             let search_path = format!(".#{}.{}", prefix, system);
-            let func = format!("x: map (x: \"{}.{}.\" + x) (builtins.attrNames x)", prefix, system);
+            let func = nix_discover_func(format!("{}.{}", prefix, system), Some(system), filter.as_deref());
             let output = nix(&[
                 "eval",
                 &search_path,
@@ -101,8 +114,8 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
                 "--json",
                 "--quiet"
             ]).unwrap_or("[]".to_owned());
-            let parsed = parse::<Vec<String>>(&output)
-                .unwrap_or(Vec::new());
+            let parsed = parse::<HashMap<String, String>>(&output)
+                .unwrap_or(HashMap::new());
             unchecked_attrs.extend(parsed);
         }
     } else {
@@ -116,14 +129,14 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             "--json",
             "--quiet"
         ]).unwrap_or("[]".to_owned());
-        let parsed = parse::<Vec<String>>(&output)
-            .unwrap_or(Vec::new());
+        let parsed = parse::<HashMap<String, String>>(&output)
+            .unwrap_or(HashMap::new());
         unchecked_attrs.extend(parsed);
     }
 
-    unchecked_attrs.retain(|a| {
-        if filter.contains(&a) {
-            eprintln!("[SKIPPED]\t{}", a);
+    unchecked_attrs.retain(|k, v| {
+        if v == SKIP_TOKEN {
+            eprintln!("[SKIPPED]\t{}", k);
             false
         } else {
             true
@@ -144,7 +157,7 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
             }
         }
     } else {
-        for attr in unchecked_attrs {
+        for (attr, _) in unchecked_attrs {
             eprintln!("[FOUND]  \t{}", attr);
             attrs.push(attr)
         }
@@ -156,54 +169,22 @@ fn discover(prefix: String, systems: Option<String>, filter: Option<String>, che
     Ok(())
 }
 
-fn check_cache_for_all(outputs: Vec<String>, cache: &str, auth: Option<String>)
+fn check_cache_for_all(outputs: HashMap<String, String>, cache: &str, auth: Option<String>)
         -> mpsc::Receiver<Result<(String, bool), String>> {
     let (tx, rx) = mpsc::channel();
-    let (tx_middle, rx_middle) = mpsc::channel();
-    let eval_pool = ThreadPool::new(HASH_EVAL_THREADS);
     let request_pool = ThreadPool::new(CACHE_CHECK_THREADS);
     let cache = cache.to_owned();
 
-    let noutputs = outputs.len();
-
-    for output in outputs.into_iter() {
+    for (output, hash) in outputs {
+        eprintln!("   (Checking {} for {} at {})", cache, output, hash);
         let tx = tx.clone();
-        let tx_middle = tx_middle.clone();
-        eval_pool.execute(move || {
-            eprintln!("   (Calculating hash for {})", output);
-            let hash = match calc_hash(&output) {
-                Ok(hash) => hash,
-                Err(e) => {
-                    tx.send(Err(e)).unwrap();
-                    tx_middle.send(None).unwrap();
-                    return
-                },
-            };
-
-            tx_middle.send(Some((output, hash))).unwrap();
+        let cache = cache.clone();
+        let auth = auth.clone();
+        request_pool.execute(move || {
+            let is_cached = check_cache(&hash, &cache, auth);
+            tx.send(is_cached.map(|c| (output, c))).unwrap();
         });
     }
-
-    thread::spawn(move || {
-        let mut counter = 0;
-        while counter < noutputs {
-            let opt = rx_middle.recv().unwrap();
-            counter += 1;
-            let (output, hash) = match opt {
-                Some(pair) => pair,
-                None => continue,
-            };
-
-            eprintln!("   (Checking {} for {} at {})", cache, output, hash);
-            let tx = tx.clone();
-            let cache = cache.clone();
-            let auth = auth.clone();
-            request_pool.execute(move || {
-                let is_cached = check_cache(&hash, &cache, auth);
-                tx.send(is_cached.map(|c| (output, c))).unwrap();
-            });
-        }
-    });
 
     rx
 }
