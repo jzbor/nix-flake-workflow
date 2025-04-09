@@ -110,7 +110,7 @@ jobs:
 
       - name: 'Alternatively run nix flake show'
         if: ${{ inputs.disable-eval-checks }}
-        run: nix flake show
+        run: nix flake show --allow-import-from-derivation
 
 
   discover-packages:
