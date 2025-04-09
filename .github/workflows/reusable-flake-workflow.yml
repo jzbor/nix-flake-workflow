@@ -58,9 +58,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Install statix'
         run: |
@@ -79,9 +79,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Install deadnix'
         run: |
@@ -100,9 +100,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Run flake checks without building'
         if: ${{ ! inputs.disable-eval-checks }}
@@ -123,9 +123,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Install nix-flake-workflow binary'
         run: |
@@ -170,9 +170,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Install nix-flake-workflow binary'
         run: |
@@ -234,9 +234,9 @@ jobs:
           printf 'arch=%s\n' "$(echo '${{ matrix.package }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: |
+          extra_nix_config: |
             ${{ env.EXTRA_NIX_CONFIG }}
             extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
 
@@ -291,9 +291,9 @@ jobs:
       checks: ${{ steps.rescan-step.outputs.checks }}
     steps:
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
 
       - name: 'Install nix-flake-workflow binary'
         run: |
@@ -341,9 +341,9 @@ jobs:
           printf 'arch=%s\n' "$(echo '${{ matrix.check }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Install Nix'
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
         with:
-          extra-conf: |
+          extra_nix_config: |
             ${{ env.EXTRA_NIX_CONFIG }}
             extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
 
