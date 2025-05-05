@@ -89,6 +89,14 @@ fn nix(args: &[&str]) -> Result<String, String> {
         .output()
         .map_err(|e| format!("Nix failed ({})", e))?;
 
+    if !cmd_out.status.success() {
+        if let Some(code) = cmd_out.status.code() {
+            return Err(format!("Nix failed with exit code {}", code));
+        } else {
+            return Err("Nix failed".to_string());
+        }
+    }
+
     String::from_utf8(cmd_out.stdout)
         .map_err(|e| format!("Unable to decode Nix output ({})", e))
 }
@@ -179,6 +187,13 @@ fn cmd_discover(args: DiscoverArgs) -> Result<(), String> {
 
     for output_label in output_labels {
         let flake_ref = format!(".#{}", output_label);
+
+        // check whether output even exists
+        if nix(&["eval", &flake_ref, "--apply", "x: true"]).is_err() {
+            eprintln!("Skipping '{}', it does not seem to exist", flake_ref);
+            continue
+        }
+
         let func = nix_discover_func(&output_label, args.filter.as_deref());
         let output = nix(&[
             "eval",
@@ -187,7 +202,7 @@ fn cmd_discover(args: DiscoverArgs) -> Result<(), String> {
             &func,
             "--json",
             "--quiet"
-        ]).unwrap_or("[]".to_owned());
+        ]).map_err(|_| format!("Failed to evaluate flake attribute '{}'", output_label))?;
         let parsed = parse::<HashMap<String, String>>(&output)
             .unwrap_or_default();
         unchecked_attrs.extend(parsed);
