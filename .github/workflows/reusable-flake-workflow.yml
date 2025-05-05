@@ -122,10 +122,16 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
 
+      - name: 'Install QEMU/binfmt (required for IFD)'
+        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
+        uses: docker/setup-qemu-action@v3
+
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
         with:
-          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: |
+            ${{ env.EXTRA_NIX_CONFIG }}
+            extra-platforms = aarch64-linux
 
       - name: 'Install nix-flake-workflow binary'
         run: |
@@ -169,10 +175,16 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@v4
 
+      - name: 'Install QEMU/binfmt (required for IFD)'
+        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
+        uses: docker/setup-qemu-action@v3
+
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
         with:
-          extra_nix_config: '${{ env.EXTRA_NIX_CONFIG }}'
+          extra_nix_config: |
+            ${{ env.EXTRA_NIX_CONFIG }}
+            extra-platforms = aarch64-linux
 
       - name: 'Install nix-flake-workflow binary'
         run: |
