@@ -243,7 +243,7 @@ jobs:
       - name: 'Determine package architecture'
         id: determine-architecture
         run: |
-          printf 'arch=%s\n' "$(echo '${{ matrix.package }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
+          printf 'arch=%s\n' "$(echo '${{ matrix.package }}' | cut -d. -f2)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -350,7 +350,7 @@ jobs:
       - name: 'Determine checks architecture'
         id: determine-architecture
         run: |
-          printf 'arch=%s\n' "$(echo '${{ matrix.check }}' | cut -d. -f1)" | tee -a $GITHUB_OUTPUT
+          printf 'arch=%s\n' "$(echo '${{ matrix.check }}' | cut -d. -f2)" | tee -a $GITHUB_OUTPUT
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
