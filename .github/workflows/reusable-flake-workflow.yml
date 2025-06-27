@@ -176,7 +176,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Install QEMU/binfmt (required for IFD)'
-        # if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
         uses: docker/setup-qemu-action@v3
 
       - name: 'Install Nix'
@@ -237,7 +236,6 @@ jobs:
           printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
 
       - name: 'Install QEMU/binfmt'
-        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
         uses: docker/setup-qemu-action@v3
 
       - name: 'Determine package architecture'
@@ -344,7 +342,6 @@ jobs:
           printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
 
       - name: 'Install QEMU/binfmt'
-        if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
         uses: docker/setup-qemu-action@v3
 
       - name: 'Determine checks architecture'
