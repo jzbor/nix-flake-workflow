@@ -249,6 +249,7 @@ jobs:
           extra_nix_config: |
             ${{ env.EXTRA_NIX_CONFIG }}
             extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
+            extra-system-features = kvm
 
       - name: 'Setup Magic Nix Cache'
         if: ${{ inputs.magic-cache == true }}
@@ -355,6 +356,7 @@ jobs:
           extra_nix_config: |
             ${{ env.EXTRA_NIX_CONFIG }}
             extra-platforms = ${{ steps.determine-architecture.outputs.arch }}
+            extra-system-features = kvm
 
       - name: 'Setup Magic Nix Cache'
         if: ${{ inputs.magic-cache == true }}
