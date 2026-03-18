@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -120,11 +120,11 @@ jobs:
       native-arch: ${{ steps.native-architecture.outputs.native }}
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Install QEMU/binfmt (required for IFD)'
         if: ${{ inputs.architectures && !steps.is-aarch64.outputs.is-aarch64 }}
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -173,10 +173,10 @@ jobs:
       native-arch: ${{ steps.native-architecture.outputs.native }}
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Install QEMU/binfmt (required for IFD)'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: 'Install Nix'
         uses: cachix/install-nix-action@v31
@@ -227,7 +227,7 @@ jobs:
         package: ${{ fromJSON(needs.discover-packages.outputs.packages) }}
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Check if this is a native aarch64 runner'
         if: ${{ inputs.arm-runners && startsWith(matrix.package, 'packages.aarch64-linux.') }}
@@ -236,7 +236,7 @@ jobs:
           printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
 
       - name: 'Install QEMU/binfmt'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: 'Determine package architecture'
         id: determine-architecture
@@ -334,7 +334,7 @@ jobs:
         check: ${{ fromJSON(needs.rescan-checks.outputs.checks) }}
     steps:
       - name: 'Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Check if this is a native aarch64 runner'
         if: ${{ inputs.arm-runners && startsWith(matrix.check, 'checks.aarch64-linux.') }}
@@ -343,7 +343,7 @@ jobs:
           printf 'is-aarch64=true\n' | tee -a $GITHUB_OUTPUT
 
       - name: 'Install QEMU/binfmt'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: 'Determine checks architecture'
         id: determine-architecture
