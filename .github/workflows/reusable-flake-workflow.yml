@@ -288,7 +288,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.package }}
-          archive: ${{ ! steps.prepare-artifact.outputs.artifact_is_file }}
+          archive: ${{ steps.prepare-artifact.outputs.artifact_is_file == 'true' }}
           path: ${{ steps.prepare-artifact.outputs.artifact_path }}
 
       - name: 'Push package closure to binary cache'
