@@ -15,9 +15,6 @@ on:
       upload-artifacts:
         required: false
         type: boolean
-      dont-zip-artifacts:
-        required: false
-        type: boolean
       architectures:
         required: false
         type: string
@@ -284,13 +281,14 @@ jobs:
         run: |
           cp -rvL "${{ steps.build-package.outputs.path }}" .
           printf "artifact_path=%s\n" "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | sed 's/\/nix\/store\/\(.*\)/\1/')" | tee -a $GITHUB_OUTPUT
+          if [ -f "$(nix build ".#${{ matrix.package }}" --print-out-paths --no-link ${{ inputs.allow-impure && '--impure' || '' }} | sed 's/\/nix\/store\/\(.*\)/\1/')" ]; then echo "artifact_is_file=true | tee -a $GITHUB_OUTPUT"; else "artifact_is_file=false | tee -a $GITHUB_OUTPUT"; fi
 
       - name: 'Upload package as artifact'
         if: ${{ inputs.upload-artifacts == true }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.package }}
-          archive: ${{ ! inputs.dont-zip-artifacts }}
+          archive: ${{ ! steps.prepare-artifact.outputs.artifact_is_file }}
           path: ${{ steps.prepare-artifact.outputs.artifact_path }}
 
       - name: 'Push package closure to binary cache'
